@@ -2,6 +2,12 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.25.1 — one daemon, restarted on upgrade
+
+**The launchd job no longer restarts forever.** When a session's client had already started the daemon, `muster serve` under launchd found the lock held and exited cleanly, and launchd restarted it every ten seconds (103,600 runs on one Mac). A serve that a client did not start now waits for the lock and takes over as soon as the other daemon exits. A client-started serve still exits when the lock is held.
+
+**The daemon restarts itself when its binary is upgraded.** It checks its executable every five seconds and exits when the file is replaced; launchd, or the next client, starts the new version. Previously nothing restarted it, so a daemon could run old code for weeks after `kempt update`.
+
 ## 0.25.0 — module path
 
 Module path is now github.com/subaud-tools/muster; the source lives at github.com/subaud-tools/muster.
