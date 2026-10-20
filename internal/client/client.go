@@ -13,6 +13,12 @@ import (
 	"github.com/subaud-tools/muster/internal/proto"
 )
 
+// AutospawnEnv marks a `muster serve` that a client started because the socket
+// did not answer. Such a daemon exits when another one already holds the lock;
+// a serve started any other way (the launchd job) waits for the lock instead,
+// so a supervisor that restarts clean exits never spins.
+const AutospawnEnv = "MUSTER_AUTOSPAWNED"
+
 // Call sends one request, dialing socketPath and spawning `muster serve` if the
 // socket is dead. Returns the daemon's response.
 func Call(socketPath string, req proto.Request) (proto.Response, error) {
@@ -61,6 +67,7 @@ func dialOrSpawn(socketPath string) (net.Conn, error) {
 		return nil, err
 	}
 	cmd := exec.Command(exe, "serve")
+	cmd.Env = append(os.Environ(), AutospawnEnv+"=1")
 	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err

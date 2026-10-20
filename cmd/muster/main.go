@@ -163,12 +163,16 @@ func runServe() int {
 		fmt.Fprintln(os.Stderr, "muster: mkdir:", err)
 		return 1
 	}
-	serveLock, acquired, err := acquireServeLock()
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	replaced := watchExecutable(5 * time.Second)
+
+	serveLock, err := acquireServeLock(os.Getenv(client.AutospawnEnv) == "", sig, replaced)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "muster: serve lock:", err)
 		return 1
 	}
-	if !acquired {
+	if serveLock == nil {
 		return 0
 	}
 	defer func() { _ = serveLock.Close() }()
@@ -205,29 +209,95 @@ func runServe() int {
 	defer func() { _ = d.Close() }()
 	fmt.Fprintln(os.Stderr, "muster daemon listening at", paths.SocketPath())
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
+	select {
+	case <-sig:
+	case <-replaced:
+		fmt.Fprintln(os.Stderr, "muster: binary replaced on disk; exiting so the new version starts")
+	}
 	return 0
 }
 
-// acquireServeLock serializes daemon ownership of the local socket. A client
-// may auto-spawn serve concurrently with another first client; only the owner
-// may clear a stale socket and bind a new listener.
-func acquireServeLock() (*os.File, bool, error) {
+// acquireServeLock serializes daemon ownership of the local socket: only the
+// owner may clear a stale socket and bind a new listener. It returns a nil file
+// when this serve should exit without serving: an auto-spawned duplicate
+// (wait false) whose lock is held, or a waiting serve stopped by a signal or by
+// an upgrade of its binary.
+//
+// A waiting serve (the launchd job) must not exit while another daemon holds
+// the lock: launchd restarts a clean exit, which spun 103,600 times on Court's
+// Mac while a client-spawned daemon owned the socket. Waiting instead lets it
+// take over the moment that daemon exits.
+func acquireServeLock(wait bool, sig <-chan os.Signal, replaced <-chan struct{}) (*os.File, error) {
 	f, err := os.OpenFile(filepath.Join(paths.Home(), "serve.lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			_ = f.Close()
-			return nil, false, nil
-		}
+	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err == nil {
+		return f, nil
+	}
+	if !errors.Is(err, syscall.EWOULDBLOCK) && !errors.Is(err, syscall.EAGAIN) {
 		_ = f.Close()
-		return nil, false, err
+		return nil, err
 	}
-	return f, true, nil
+	if !wait {
+		_ = f.Close()
+		return nil, nil
+	}
+	fmt.Fprintln(os.Stderr, "muster: another daemon holds serve.lock; waiting to take over")
+	locked := make(chan error, 1)
+	go func() { locked <- syscall.Flock(int(f.Fd()), syscall.LOCK_EX) }()
+	select {
+	case err := <-locked:
+		if err != nil {
+			_ = f.Close()
+			return nil, err
+		}
+		return f, nil
+	case <-sig:
+	case <-replaced:
+		fmt.Fprintln(os.Stderr, "muster: binary replaced on disk while waiting; exiting so the new version starts")
+	}
+	// Exiting the process closes the descriptor and drops any lock the
+	// blocked Flock may still win.
+	return nil, nil
+}
+
+// watchExecutable returns a channel that closes once the file at the running
+// binary's path is replaced, so an upgrade restarts the daemon whoever started
+// it. It never closes when the path cannot be resolved.
+func watchExecutable(interval time.Duration) <-chan struct{} {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil
+	}
+	return watchFile(exe, interval)
+}
+
+// watchFile closes the returned channel when path names a different file, or
+// the same file with a new modification time, than it did at the call. A path
+// that is briefly missing mid-replace is not a change.
+func watchFile(path string, interval time.Duration) <-chan struct{} {
+	start, err := os.Stat(path)
+	if err != nil {
+		return nil
+	}
+	changed := make(chan struct{})
+	go func() {
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for range t.C {
+			now, err := os.Stat(path)
+			if err != nil {
+				continue
+			}
+			if !os.SameFile(start, now) || !now.ModTime().Equal(start.ModTime()) {
+				close(changed)
+				return
+			}
+		}
+	}()
+	return changed
 }
 
 // serveRemote builds the remote-mode daemon: it keeps the unix socket and the

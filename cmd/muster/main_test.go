@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/subaud-tools/muster/internal/client"
 	"github.com/subaud-tools/muster/internal/daemon"
 	"github.com/subaud-tools/muster/internal/mustertest"
 	"github.com/subaud-tools/muster/internal/paths"
@@ -291,7 +292,7 @@ func TestSecondServeLeavesFirstDaemonSocketOwned(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "serve")
-	cmd.Env = append(os.Environ(), "MUSTER_HOME="+home)
+	cmd.Env = append(os.Environ(), "MUSTER_HOME="+home, client.AutospawnEnv+"=1")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		if ctx.Err() != nil {
 			t.Fatalf("second serve did not exit while the first owned serve.lock: %s", out)
@@ -304,6 +305,96 @@ func TestSecondServeLeavesFirstDaemonSocketOwned(t *testing.T) {
 		t.Fatalf("first daemon socket was unlinked: %v", err)
 	}
 	_ = conn.Close()
+}
+
+// TestSupervisedServeWaitsThenTakesOver: a serve that was not auto-spawned (the
+// launchd job) must not exit while another daemon holds serve.lock, because
+// launchd restarts a clean exit forever. It waits, then serves the moment the
+// holder lets go.
+func TestSupervisedServeWaitsThenTakesOver(t *testing.T) {
+	home, cleanup, err := mustertest.ShortHome()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	t.Setenv("MUSTER_HOME", home)
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := os.OpenFile(filepath.Join(home, "serve.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = lock.Close() })
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command(builtBinary(t), "serve")
+	cmd.Env = append(os.Environ(), "MUSTER_HOME="+home)
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	exited := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(exited) }()
+	t.Cleanup(func() {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		<-exited
+	})
+
+	select {
+	case <-exited:
+		t.Fatalf("supervised serve exited while the lock was held: %s", errBuf.String())
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		conn, err := net.DialTimeout("unix", paths.SocketPath(), 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("supervised serve did not take over after the lock was released: %s", errBuf.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// TestWatchFileFiresWhenBinaryIsReplaced: an upgrade renames a new binary over
+// the old path, and the daemon must notice so the new version starts.
+func TestWatchFileFiresWhenBinaryIsReplaced(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "muster")
+	if err := os.WriteFile(bin, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	changed := watchFile(bin, 10*time.Millisecond)
+
+	select {
+	case <-changed:
+		t.Fatal("fired before the binary changed")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	next := filepath.Join(dir, "muster.new")
+	if err := os.WriteFile(next, []byte("new"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(next, bin); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-changed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not fire after the binary was replaced")
+	}
 }
 
 // TestBareInvocationUnderLambdaRuntimeRoutesToLambda pins the dispatch
