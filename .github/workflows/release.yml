@@ -101,6 +101,6 @@ jobs:
           apple-notary-key-id: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           apple-notary-issuer-id: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           dl-tool: muster
-          dl-role-arn: ${{ secrets.MUSTER_RELEASE_ROLE_ARN }}
-          dl-bucket: ${{ secrets.MUSTER_DOWNLOADS_BUCKET }}
+          dl-role-arn: ${{ vars.MUSTER_RELEASE_ROLE_ARN }}
+          dl-bucket: ${{ vars.MUSTER_DOWNLOADS_BUCKET }}
           dl-distribution-id: ENNIY7RSDS2NI
