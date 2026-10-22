@@ -2,9 +2,11 @@ package daemon
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/subaud-tools/muster/internal/device"
 	"github.com/subaud-tools/muster/internal/resolve"
+	"github.com/subaud-tools/muster/internal/store"
 )
 
 // requireKnownAlias is resolveAgentTarget's counterpart for an ACTOR alias —
@@ -63,6 +65,29 @@ func (d *Daemon) requireKnownAlias(field, given string) (string, error) {
 		return "", fmt.Errorf("no agent registered as %q", given)
 	}
 	return given, nil
+}
+
+// refuseEndedRecipient refuses a request (reply- or action-requested; a task
+// with no intent counts as action-requested, a message with none as fyi, as
+// the stores' effectiveIntent rule says) to an alias whose row is departed.
+// Requests to departed sessions were never answered (5 of 5, 30 days to
+// 2026-10-22); fyi still waits for the alias to return.
+func (d *Daemon) refuseEndedRecipient(kind, intent, alias string) error {
+	if kind == "task" && intent == "" {
+		intent = store.IntentAction
+	}
+	if intent != store.IntentReply && intent != store.IntentAction {
+		return nil
+	}
+	ag, found, err := d.s.GetAgent(alias)
+	if err != nil {
+		return err
+	}
+	if !found || !ag.Departed {
+		return nil
+	}
+	lastSeen := time.UnixMilli(ag.LastSeen).UTC().Format("2006-01-02T15:04Z")
+	return fmt.Errorf("%s ended (last seen %s) and can't answer a request. Send it to a live session (list_agents shows who is live), or send it as fyi to leave it waiting", alias, lastSeen)
 }
 
 // resolveAgentTarget resolves to_target for a send_message/task_create op

@@ -93,7 +93,9 @@ func TestSendMessageUnknownTargetFailsLoudly(t *testing.T) {
 }
 
 // TestSendMessageDepartedAliasStillAccepted: a departed (tombstoned) agent's
-// ALIAS remains addressable — mail may be waiting for it to return.
+// ALIAS remains addressable for fyi mail (a message with no intent is fyi) —
+// it may be waiting for them to return. A request is refused; see
+// TestSendMessageRequestToDepartedRefused.
 func TestSendMessageDepartedAliasStillAccepted(t *testing.T) {
 	sock := startTestDaemon(t)
 	call(t, sock, "register_agent", map[string]any{"alias": "sender-1", "role": "producer", "model_type": "claude"})
@@ -105,6 +107,94 @@ func TestSendMessageDepartedAliasStillAccepted(t *testing.T) {
 	})
 	if !resp.OK {
 		t.Fatalf("expected a departed agent's ALIAS to still resolve, got %+v", resp)
+	}
+}
+
+// registerSenderAndGone registers sender-1 and gone-1, then departs gone-1.
+func registerSenderAndGone(t *testing.T, sock string) {
+	t.Helper()
+	call(t, sock, "register_agent", map[string]any{"alias": "sender-1", "role": "producer", "model_type": "claude"})
+	call(t, sock, "register_agent", map[string]any{"alias": "gone-1", "role": "worker", "model_type": "claude"})
+	call(t, sock, "deregister_agent", map[string]any{"alias": "gone-1"})
+}
+
+// requireEndedRefusal fails unless resp is the ended-session refusal.
+func requireEndedRefusal(t *testing.T, resp proto.Response) {
+	t.Helper()
+	if resp.OK {
+		t.Fatalf("expected a request to a departed agent to be refused, got %+v", resp)
+	}
+	for _, want := range []string{"gone-1", "ended", "fyi"} {
+		if !strings.Contains(resp.Error, want) {
+			t.Fatalf("error %q does not contain %q", resp.Error, want)
+		}
+	}
+}
+
+// TestSendMessageRequestToDepartedRefused: a reply- or action-requested
+// message to a departed alias fails with the reason and creates no thread.
+func TestSendMessageRequestToDepartedRefused(t *testing.T) {
+	for _, intent := range []string{"reply-requested", "action-requested"} {
+		t.Run(intent, func(t *testing.T) {
+			sock := startTestDaemon(t)
+			registerSenderAndGone(t, sock)
+			resp := call(t, sock, "send_message", map[string]any{
+				"from": "sender-1", "to_kind": "agent", "to_target": "gone-1",
+				"subject": "s", "body": "b", "intent": intent,
+			})
+			requireEndedRefusal(t, resp)
+			if n := threadCount(t, call(t, sock, "list_threads", map[string]any{"limit": 10})); n != 0 {
+				t.Fatalf("a refused request must create no thread, got %d", n)
+			}
+		})
+	}
+}
+
+// TestTaskCreateToDepartedRefused: a task with no intent is a request, so it
+// is refused to a departed alias; an fyi task still waits.
+func TestTaskCreateToDepartedRefused(t *testing.T) {
+	sock := startTestDaemon(t)
+	registerSenderAndGone(t, sock)
+	resp := call(t, sock, "task_create", map[string]any{
+		"from": "sender-1", "to_kind": "agent", "to_target": "gone-1", "subject": "s", "body": "b",
+	})
+	requireEndedRefusal(t, resp)
+	if n := threadCount(t, call(t, sock, "list_threads", map[string]any{"limit": 10})); n != 0 {
+		t.Fatalf("a refused task must create no thread, got %d", n)
+	}
+
+	resp = call(t, sock, "task_create", map[string]any{
+		"from": "sender-1", "to_kind": "agent", "to_target": "gone-1", "subject": "s", "body": "b", "intent": "fyi",
+	})
+	if !resp.OK {
+		t.Fatalf("expected an fyi task to a departed agent to be accepted, got %+v", resp)
+	}
+}
+
+// TestSendMessageFyiToDepartedStillAccepted: an explicit fyi to a departed
+// alias still waits for them to return.
+func TestSendMessageFyiToDepartedStillAccepted(t *testing.T) {
+	sock := startTestDaemon(t)
+	registerSenderAndGone(t, sock)
+	resp := call(t, sock, "send_message", map[string]any{
+		"from": "sender-1", "to_kind": "agent", "to_target": "gone-1", "subject": "s", "body": "b", "intent": "fyi",
+	})
+	if !resp.OK {
+		t.Fatalf("expected an fyi to a departed agent to be accepted, got %+v", resp)
+	}
+}
+
+// TestSendMessageRequestToLiveAgentAccepted guards against over-refusal: a
+// request to a registered, non-departed alias goes through.
+func TestSendMessageRequestToLiveAgentAccepted(t *testing.T) {
+	sock := startTestDaemon(t)
+	call(t, sock, "register_agent", map[string]any{"alias": "sender-1", "role": "producer", "model_type": "claude"})
+	call(t, sock, "register_agent", map[string]any{"alias": "live-1", "role": "worker", "model_type": "claude"})
+	resp := call(t, sock, "send_message", map[string]any{
+		"from": "sender-1", "to_kind": "agent", "to_target": "live-1", "subject": "s", "body": "b", "intent": "action-requested",
+	})
+	if !resp.OK {
+		t.Fatalf("expected a request to a live agent to be accepted, got %+v", resp)
 	}
 }
 
