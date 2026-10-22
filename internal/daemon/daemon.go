@@ -950,6 +950,9 @@ func (d *Daemon) dispatch(req proto.Request) proto.Response {
 				return fail(err)
 			}
 			toTarget = resolved
+			if err := d.refuseEndedRecipient("message", str(a, "intent"), toTarget); err != nil {
+				return fail(err)
+			}
 		}
 		standing := boolArg(a, "standing")
 		if toKind == "broadcast" {
@@ -994,6 +997,9 @@ func (d *Daemon) dispatch(req proto.Request) proto.Response {
 				return fail(err)
 			}
 			toTarget = resolved
+			if err := d.refuseEndedRecipient("task", str(a, "intent"), toTarget); err != nil {
+				return fail(err)
+			}
 		}
 		if toKind == "broadcast" {
 			if err := d.validateBroadcastTarget(toTarget); err != nil {

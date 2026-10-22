@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.26.0 — requests to an ended session are refused
+
+A request (reply-requested, action-requested, or a task) to an agent that has ended is now refused with when it was last seen, instead of being accepted and never answered; fyi sends still wait for the alias to return.
+
 ## 0.25.1 — one daemon, restarted on upgrade
 
 **The launchd job no longer restarts forever.** When a session's client had already started the daemon, `muster serve` under launchd found the lock held and exited cleanly, and launchd restarted it every ten seconds (103,600 runs on one Mac). A serve that a client did not start now waits for the lock and takes over as soon as the other daemon exits. A client-started serve still exits when the lock is held.
