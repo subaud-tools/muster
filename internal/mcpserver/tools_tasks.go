@@ -119,7 +119,7 @@ func taskTransitionHandler(_ context.Context, _ *mcp.CallToolRequest, in TaskTra
 // registerTaskTools registers the task tools on srv.
 func registerTaskTools(srv *mcp.Server) {
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_tasks", Description: "Discover task threads across the bus with exact composable filters. Defaults to nonterminal tasks and 100 results; maximum 500. Results are ordered by most recent update and report truncated when more match."}, listTasksHandler)
-	mcp.AddTool(srv, &mcp.Tool{Name: "task_create", Description: "Create a task addressed to an agent or role. The assignee(s) can claim and work it. Optional intent (fyi/reply-requested/action-requested) defaults to action-requested — a task is inherently a request for action."}, taskCreateHandler)
+	mcp.AddTool(srv, &mcp.Tool{Name: "task_create", Description: "Create a task addressed to an agent or role. The assignee(s) can claim and work it. Optional intent (fyi/reply-requested/action-requested) defaults to action-requested — a task is inherently a request for action. A reply-requested or action-requested send (every task without intent fyi) to an agent that has ended is refused with the reason; send fyi to leave it waiting for that alias to return."}, taskCreateHandler)
 	mcp.AddTool(srv, &mcp.Tool{Name: "task_claim", Description: "Claim an open task. Only the first claimer succeeds; a second claim fails."}, taskClaimHandler)
 	mcp.AddTool(srv, &mcp.Tool{Name: "task_transition", Description: "Move a task to a new status (claimed, needs_info, blocked, completed, declined, cancelled) with an optional note."}, taskTransitionHandler)
 }
