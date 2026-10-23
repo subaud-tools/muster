@@ -3,7 +3,7 @@
 // navigation (Enter pushes, Esc pops exactly one frame, g pops home), a
 // mailbox as its own page, one canonical header-badge renderer, and an
 // agent page with a header band (+ a marked-but-empty vitals slot, 0.6.1)
-// above its full-width threads table. Like `muster watch`, station never
+// above its full-width threads table. Like `muster tail`, station never
 // streams — it polls the daemon on a tea.Tick, but the poll loop is owned by
 // the Bubble Tea MODEL instead of a bare for-loop, so the event journal
 // cursor advances only when the model actually applies an events page (see
@@ -455,7 +455,7 @@ func (m Model) pollCmd() tea.Cmd {
 }
 
 // Update implements tea.Model. See eventsMsg/agentsMsg/threadsMsg handling
-// below for the cursor discipline (identical to watch: max_id, regression
+// below for the cursor discipline (identical to tail: max_id, regression
 // reset, errors → status line + retry, never exit).
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -1636,7 +1636,7 @@ func (m Model) applyComposerSent(msg composerSentMsg) Model {
 //
 // Otherwise this is a follow-mode page: a regression (max_id < cursor — the
 // DB was replaced) resets the cursor to the new tail without applying the
-// (stale) page, exactly like watch.
+// (stale) page, exactly like tail.
 func (m Model) applyEvents(msg eventsMsg) Model {
 	if msg.err != nil {
 		what := "events"

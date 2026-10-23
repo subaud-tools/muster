@@ -2,6 +2,12 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.27.0 — Claude Code hears muster without a launch flag
+
+**Breaking: `muster watch` is renamed `muster tail`.** It is a rename only: the same flags (`--agent`, `--kind`, `--thread`, `--interval`, `--backlog`, `--aliases`, `--full-time`, `--width`) and the same live view of the bus journal. There is no `watch` alias for it; `watch` now names the event stream every family tool's Claude Code plugin runs.
+
+**Claude Code hears muster without a launch flag.** muster ships a Claude Code plugin whose mod runs the new `muster watch` (the event stream) for the session, so mail starts a turn in a session started with plain `claude`. No `--dangerously-load-development-channels` and no warning dialog at launch. Under Claude Code, `muster channel` serves `muster_channel_status` only and leaves mail to `muster watch`; under pi it works as before.
+
 ## 0.26.0 — requests to an ended session are refused
 
 A request (reply-requested, action-requested, or a task) to an agent that has ended is now refused with when it was last seen, instead of being accepted and never answered; fyi sends still wait for the alias to return.

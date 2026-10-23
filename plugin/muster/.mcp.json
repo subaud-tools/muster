@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "muster-channel": {
+      "command": "muster",
+      "args": [
+        "channel"
+      ]
+    }
+  }
+}

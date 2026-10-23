@@ -34,6 +34,11 @@ jobs:
           go-version-file: go.mod
           cache: false
       - uses: extractions/setup-just@v4.0.0
+      # verify-extra's plugin-valid runs Claude Code's plugin validator
+      # through npx.
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22
       - run: just verify-extra
 
   # The DynamoDB backend's real semantics — conditional writes, atomic

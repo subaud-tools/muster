@@ -54,7 +54,7 @@ func TestRegisterAgentOutcomeClassification(t *testing.T) {
 		t.Fatalf("revival unread = %v, want >= 1", data["unread"])
 	}
 
-	// Revival is journaled so watch/station show a returning agent.
+	// Revival is journaled so tail/station show a returning agent.
 	ev := call(t, sock, "list_events", map[string]any{"agent": "backend"})
 	if !containsEventDetail(t, ev, "register", "revived") {
 		t.Fatalf("no register/revived journal event after revival: %+v", ev.Data)

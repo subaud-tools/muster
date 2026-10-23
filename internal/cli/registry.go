@@ -225,21 +225,21 @@ current labels; --full-time prints dates, not just times.`,
 			Run:      adapt(cmdEvents),
 		},
 		{
-			Name:     "watch",
-			Synopsis: "watch [--agent <alias>] [--kind <k>] [--thread <id>] [--interval <dur>] [--backlog <n>] [--aliases] [--full-time] [--width <cols>]",
+			Name:     "tail",
+			Synopsis: "tail [--agent <alias>] [--kind <k>] [--thread <id>] [--interval <dur>] [--backlog <n>] [--aliases] [--full-time] [--width <cols>]",
 			Summary:  "Tail the bus journal live.",
 			Help: `Prints the last --backlog matching events, then polls for new ones every
 --interval until interrupted (Ctrl-C). Side-effect-free: watching never
 marks anything read.`,
 			Group:    GroupWatch,
-			NewFlags: newWatchFlags,
-			Run:      adapt(func(args []string, out io.Writer) error { return cmdWatch(args, out, watchOpts{}) }),
+			NewFlags: newTailFlags,
+			Run:      adapt(func(args []string, out io.Writer) error { return cmdTail(args, out, tailOpts{}) }),
 		},
 		{
 			Name:     "station",
 			Synopsis: "station [--interval <dur>] [--aliases] [--width <cols>] [--alias <name>]",
 			Summary:  "Full-screen operator TUI for the bus.",
-			Help:     `A live, navigable projects → agents → threads view of the bus, built on the same event journal 'muster watch' tails.`,
+			Help:     `A live, navigable projects → agents → threads view of the bus, built on the same event journal 'muster tail' follows.`,
 			Group:    GroupWatch,
 			NewFlags: station.FlagSet,
 			Run: adapt(func(args []string, out io.Writer) error {
@@ -392,25 +392,32 @@ protocol channel — all diagnostics go to stderr.`,
 			Synopsis: "channel",
 			Summary:  "Run the MCP channel carrier that pushes new mail into this session.",
 			Help: `A claude/channel MCP server over stdio for the session that launched it.
-Register it once per harness beside 'muster mcp':
+It serves muster_channel_status, which reports what the channel is attached
+to. Under pi it also tails the bus journal for this tmux session's aliases
+and pushes a compact envelope (who, intent, thread, subject) into the session
+the moment mail lands — waking an idle agent without anyone typing. Under
+Claude Code it serves the tool only: 'muster watch', which the muster plugin
+runs, pushes the mail.
 
-    claude mcp add muster-channel -s user -- muster channel
-    claude --dangerously-load-development-channels server:muster-channel
-
-Claude Code loads a server as a channel only when named at launch; without
-the flag the pushes are dropped silently and the hook fallbacks deliver.
-
-It tails the bus journal for this tmux session's aliases and pushes a compact
-envelope (who, intent, thread, subject) into the session the moment mail
-lands — waking an idle agent without anyone typing. Bodies stay in the bus:
-the agent answers with get_thread / get_inbox / reply as before. The 📬 badge,
-the Stop-hook drain and 'muster nudge' keep working unchanged as fallbacks.
+Bodies stay in the bus: the agent answers with get_thread / get_inbox / reply
+as before. The 📬 badge, the Stop-hook drain and 'muster nudge' keep working
+unchanged as fallbacks.
 
 MUSTER_CHANNEL_INTERVAL tunes the poll cadence (Go duration, default 1s,
 floor 250ms); MUSTER_CHANNEL_MAX_LISTED (default 5) caps how many threads a
 batch push lists before collapsing to a count. A push is an envelope line,
-a "---" line, then guidance for that event. stdout is the MCP protocol — diagnostics go to stderr. One tool,
-muster_channel_status, reports what the channel is attached to.`,
+a "---" line, then guidance for that event. stdout is the MCP protocol — diagnostics go to stderr.`,
+			Group: GroupPlumbing,
+		},
+		{
+			Name:     "watch",
+			Synopsis: "watch",
+			Summary:  "Print new mail for this session as JSON lines — the Claude Code plugin's feed.",
+			Help: `Runs the same carrier as 'muster channel' for this tmux session's aliases
+and prints each push as one JSON line {"content": ..., "meta": {...}} on
+stdout. The muster plugin's mod runs it for a Claude Code session and starts
+a turn with each line. To follow the whole bus yourself, use 'muster tail'.
+Diagnostics go to stderr. Runs until signalled.`,
 			Group: GroupPlumbing,
 		},
 		{
