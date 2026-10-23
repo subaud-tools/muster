@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -81,12 +82,8 @@ func TestSetupApplyClaude(t *testing.T) {
 	if got := mcp["muster"]; !reflect.DeepEqual(got, wantMuster) {
 		t.Errorf("mcpServers.muster = %#v, want %#v", got, wantMuster)
 	}
-	wantChannel := map[string]any{
-		"type": "stdio", "command": "muster",
-		"args": []any{"channel"}, "env": map[string]any{},
-	}
-	if got := mcp["muster-channel"]; !reflect.DeepEqual(got, wantChannel) {
-		t.Errorf("mcpServers.muster-channel = %#v, want %#v", got, wantChannel)
+	if got, ok := mcp["muster-channel"]; ok {
+		t.Errorf("mcpServers.muster-channel = %#v, want absent (the plugin delivers mail)", got)
 	}
 
 	// Hooks + permission into ~/.claude/settings.json
@@ -192,8 +189,9 @@ func TestSetupNoHooks(t *testing.T) {
 	if !fileExists(filepath.Join(home, ".claude.json")) {
 		t.Fatal("MCP should still be written with --no-hooks")
 	}
-	if fileExists(filepath.Join(home, ".claude", "settings.json")) {
-		t.Fatal("settings.json hooks should NOT be written with --no-hooks")
+	settings := readJSON(t, filepath.Join(home, ".claude", "settings.json"))
+	if _, ok := settings["hooks"]; ok {
+		t.Fatalf("settings.json hooks should NOT be written with --no-hooks: %#v", settings)
 	}
 }
 
@@ -388,5 +386,91 @@ func TestKemptTemplateInstallsUserPromptSubmit(t *testing.T) {
 	want := `UserPromptSubmit = [ { hooks = [ { type = "command", command = "~/.local/bin/muster hook UserPromptSubmit claude" } ] } ]`
 	if !strings.Contains(setupKemptTOML, want) {
 		t.Fatalf("setup_kempt.toml lacks the Claude UserPromptSubmit hook: want %s", want)
+	}
+}
+
+// TestSetupClaudeEnablesPlugin: Claude Code hears mail through the muster
+// plugin, so setup adds its marketplace and enables muster@muster, drops the
+// old muster-channel server and keeps muster mcp for the bus tools.
+func TestSetupClaudeEnablesPlugin(t *testing.T) {
+	home := setupHome(t)
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	seed := `{"mcpServers":{"muster-channel":{"type":"stdio","command":"muster","args":["channel"],"env":{}}}}`
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runSetup(t)
+
+	mcp, _ := readJSON(t, filepath.Join(home, ".claude.json"))["mcpServers"].(map[string]any)
+	if got, ok := mcp["muster-channel"]; ok {
+		t.Errorf("mcpServers.muster-channel = %#v, want removed", got)
+	}
+	if _, ok := mcp["muster"]; !ok {
+		t.Errorf("mcpServers.muster missing: %#v", mcp)
+	}
+
+	settings := readJSON(t, filepath.Join(home, ".claude", "settings.json"))
+	wantMarket := map[string]any{"source": map[string]any{"source": "github", "repo": "subaud-tools/muster"}}
+	markets, _ := settings["extraKnownMarketplaces"].(map[string]any)
+	if got := markets["muster"]; !reflect.DeepEqual(got, wantMarket) {
+		t.Errorf("extraKnownMarketplaces.muster = %#v, want %#v", got, wantMarket)
+	}
+	plugins, _ := settings["enabledPlugins"].(map[string]any)
+	if got := plugins["muster@muster"]; got != true {
+		t.Errorf("enabledPlugins[muster@muster] = %#v, want true", got)
+	}
+}
+
+// TestSetupMatchesKemptTemplate: `muster setup` applies exactly the merges
+// and removals the kempt block declares, file by file, so the two install
+// paths can't drift.
+func TestSetupMatchesKemptTemplate(t *testing.T) {
+	var doc struct {
+		Packages struct {
+			Muster struct {
+				JSONMerge []struct {
+					File   string         `toml:"file"`
+					Merge  map[string]any `toml:"merge"`
+					Remove []string       `toml:"remove"`
+				} `toml:"json-merge"`
+				TOMLMerge []struct {
+					File  string         `toml:"file"`
+					Merge map[string]any `toml:"merge"`
+				} `toml:"toml-merge"`
+			} `toml:"muster"`
+		} `toml:"packages"`
+	}
+	if err := toml.Unmarshal([]byte(setupKemptTOML), &doc); err != nil {
+		t.Fatalf("parse setup_kempt.toml: %v", err)
+	}
+	entry := func(file string, merge map[string]any, remove []string) string {
+		b, err := json.Marshal(map[string]any{"file": file, "merge": merge, "remove": remove})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	var kempt []string
+	for _, e := range doc.Packages.Muster.JSONMerge {
+		kempt = append(kempt, entry(e.File, e.Merge, e.Remove))
+	}
+	for _, e := range doc.Packages.Muster.TOMLMerge {
+		kempt = append(kempt, entry(e.File, e.Merge, nil))
+	}
+
+	var setup []string
+	for _, agent := range supportedAgents {
+		// kempt expands ${HOME} where setup writes the absolute binary path.
+		for _, op := range agentOps("/home", agent, "${HOME}/.local/bin/muster", "~/.local/bin/muster", false) {
+			setup = append(setup, entry(op.disp, op.desired, op.remove))
+		}
+	}
+
+	sort.Strings(kempt)
+	sort.Strings(setup)
+	if !reflect.DeepEqual(kempt, setup) {
+		t.Errorf("setup and setup_kempt.toml differ:\nkempt:\n%s\nsetup:\n%s", strings.Join(kempt, "\n"), strings.Join(setup, "\n"))
 	}
 }

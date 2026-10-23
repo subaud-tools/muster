@@ -67,7 +67,7 @@ func newSetupFlagsWithVals() (*flag.FlagSet, setupFlagVals) {
 	v.print = fs.String("print", "", "print a configuration instead of applying it (only: kempt)")
 	v.force = fs.Bool("force", false, "apply directly even when kempt is installed")
 	v.dryRun = fs.Bool("dry-run", false, "compute and print every change but write nothing")
-	v.noHooks = fs.Bool("no-hooks", false, "register the MCP server only; skip session hooks")
+	v.noHooks = fs.Bool("no-hooks", false, "register the MCP server (and the Claude Code plugin) only; skip session hooks")
 	v.tmux = fs.Bool("tmux", false, "also add the tmux mailbox lines to ~/.tmux.conf")
 	v.agents = &stringList{}
 	fs.Var(v.agents, "agent", "limit to these agents (claude|codex|cursor); repeatable or comma-separated")
@@ -224,15 +224,26 @@ func agentDetected(home, agent string) bool {
 func agentOps(home, agent, mbAbs, mbTilde string, noHooks bool) []fileOp {
 	switch agent {
 	case "claude":
-		ops := []fileOp{{
-			path: filepath.Join(home, ".claude.json"),
-			disp: "~/.claude.json",
-			desc: "mcpServers.muster + muster-channel",
-			desired: mustJSON(`{"mcpServers":{"muster":{"type":"stdio","command":"muster","args":["mcp"],"env":{}},` +
-				`"muster-channel":{"type":"stdio","command":"muster","args":["channel"],"env":{}}}}`),
-		}}
+		// The bus tools stay a bare MCP server; mail reaches the session
+		// through the muster plugin, which replaces the muster-channel server.
+		settings := filepath.Join(home, ".claude", "settings.json")
+		ops := []fileOp{
+			{
+				path:    filepath.Join(home, ".claude.json"),
+				disp:    "~/.claude.json",
+				desc:    "mcpServers.muster, without muster-channel",
+				desired: mustJSON(`{"mcpServers":{"muster":{"type":"stdio","command":"muster","args":["mcp"],"env":{}}}}`),
+				remove:  []string{"mcpServers.muster-channel"},
+			},
+			{
+				path: settings,
+				disp: "~/.claude/settings.json",
+				desc: "the muster@muster plugin",
+				desired: mustJSON(`{"extraKnownMarketplaces":{"muster":{"source":{"source":"github","repo":"subaud-tools/muster"}}},` +
+					`"enabledPlugins":{"muster@muster":true}}`),
+			},
+		}
 		if !noHooks {
-			settings := filepath.Join(home, ".claude", "settings.json")
 			ops = append(ops,
 				fileOp{
 					path:    settings,
@@ -302,6 +313,7 @@ type fileOp struct {
 	desc    string         // what this merge adds, for the summary line
 	toml    bool           // true → TOML file, else JSON
 	desired map[string]any // the map to deep-merge in
+	remove  []string       // dotted key paths to delete after the merge
 }
 
 // apply reads the target file, deep-merges the desired map, and (unless
@@ -330,6 +342,9 @@ func (op fileOp) apply(dryRun bool) (bool, error) {
 	}
 
 	deepMerge(current, op.desired)
+	for _, p := range op.remove {
+		removePath(current, strings.Split(p, "."))
+	}
 
 	var after []byte
 	if op.toml {
@@ -441,6 +456,19 @@ func deepMerge(dst, src map[string]any) {
 			dst[k] = sv
 		}
 	}
+}
+
+// removePath deletes the key at a dotted path, leaving its parents; a path
+// that isn't there is left alone.
+func removePath(m map[string]any, keys []string) {
+	for len(keys) > 1 {
+		next, ok := m[keys[0]].(map[string]any)
+		if !ok {
+			return
+		}
+		m, keys = next, keys[1:]
+	}
+	delete(m, keys[0])
 }
 
 // mergeArray returns dst with each element of src appended only if no element

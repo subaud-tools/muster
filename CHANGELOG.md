@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## Unreleased
+
+`muster setup` enables the Claude Code plugin (`muster@muster`) and no longer registers muster-channel; it removes a muster-channel entry left in `~/.claude.json`. The `muster setup --print kempt` block does the same.
+
 ## 0.27.0 — Claude Code hears muster without a launch flag
 
 **Breaking: `muster watch` is renamed `muster tail`.** It is a rename only: the same flags (`--agent`, `--kind`, `--thread`, `--interval`, `--backlog`, `--aliases`, `--full-time`, `--width`) and the same live view of the bus journal. There is no `watch` alias for it; `watch` now names the event stream every family tool's Claude Code plugin runs.
