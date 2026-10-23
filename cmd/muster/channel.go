@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/subaud-tools/muster/internal/tmuxenv"
 	"github.com/subaud-tools/muster/internal/version"
 	"github.com/subaud-tools/tools-common/channelmcp"
+	"github.com/subaud-tools/tools-common/harness"
 )
 
 // channelCapture resolves the tmux identity the channel pushes for: the
@@ -36,8 +38,8 @@ func channelCapture() tmuxenv.Capture {
 // the channel is and how a push is shaped. Everything specific to a kind of
 // event travels WITH that event, after the separator, so the rule sits next
 // to the action it governs instead of thousands of tokens back.
-const channelInstructions = `This channel is muster, the local coordination bus. A <channel source="muster-channel"> message means mail arrived on the bus for THIS session.
-- Each push is an envelope line (intent, sender, thread id, subject — never the body), then a line containing only "---", then guidance for that push. Follow the guidance; it names the tool to call.
+const channelInstructions = `This channel is muster, the local coordination bus. An event from muster means mail arrived on the bus for THIS session: a <channel source="muster-channel"> message, or a turn whose first line is muster event.
+- Each event is an envelope line (intent, sender, thread id, subject — never the body), then a line containing only "---", then guidance for that event. Follow the guidance; it names the tool to call.
 - The body lives in the bus: get_thread <id> reads one thread, get_inbox lists everything unread, reply answers.
 - Act autonomously. Do not ask the user whether to check mail; reading it is the point.
 - muster_channel_status reports which aliases this channel pushes for and why it might be idle.`
@@ -61,24 +63,31 @@ func channelMaxListed() int {
 	return n
 }
 
-// runChannel serves a claude/channel MCP server on stdio for the session that
-// launched it and runs the carrier beside it. stdout is the protocol.
-//
-// Shutdown has two triggers and both must end the process: the client
-// closing stdin (srv.Run returns), or SIGINT/SIGTERM. signal.NotifyContext
-// suppresses the signal's default action, so if the server loop were the
-// only thing we waited on, a harness that sends SIGTERM while still holding
-// our pipes would leave a process that never exits — measured by the
-// pi-channels client, which had to SIGKILL after a grace period.
-func runChannel() {
-	channel.MaxListed = channelMaxListed()
-	capture := channelCapture()
-	carrier := &channel.Carrier{
-		Call:     channel.DaemonClient(paths.SocketPath()),
+// newCarrier is the carrier `muster channel` and `muster watch` share: the
+// session's tmux identity, the daemon, and where each push goes.
+func newCarrier(capture tmuxenv.Capture, call channel.Client, push channelmcp.Pusher) *channel.Carrier {
+	return &channel.Carrier{
+		Call:     call,
+		Notify:   push.Notify,
 		Ident:    channel.Identity{SocketPath: capture.SocketPath, SessionID: capture.SessionID, PaneID: capture.PaneID, SessionCreated: capture.SessionCreated},
 		Interval: channelInterval(),
 	}
-	srv := channelmcp.New(channelmcp.Handler{
+}
+
+// channelProc is `muster channel`: the MCP server and the carrier beside it.
+type channelProc struct {
+	srv     *channelmcp.Server
+	carrier *channel.Carrier
+	// serveOnly is `muster channel` under Claude Code: the plugin's mod runs
+	// `muster watch`, which pushes the mail, so this process serves
+	// muster_channel_status and never runs the carrier. Two carriers would
+	// start two turns for each message.
+	serveOnly bool
+}
+
+func newChannelProc(capture tmuxenv.Capture, call channel.Client) *channelProc {
+	p := &channelProc{serveOnly: harness.FromEnv().IsClaude()}
+	p.srv = channelmcp.New(channelmcp.Handler{
 		Name:         "muster-channel",
 		Version:      version.Version(),
 		Instructions: channelInstructions,
@@ -91,15 +100,47 @@ func runChannel() {
 			if name != "muster_channel_status" {
 				return "", fmt.Errorf("unknown tool %q", name)
 			}
-			return carrier.Status(), nil
+			if p.serveOnly {
+				return "This is a Claude Code session: mail reaches it through `muster watch`, which the muster plugin starts, " +
+					"not through this process, so this channel pushes nothing. If mail never arrives, check that the muster plugin " +
+					"is installed and enabled (/plugin).\n" + p.carrier.Identify(), nil
+			}
+			return p.carrier.Status(), nil
 		},
 	})
-	carrier.Notify = srv.Notify
+	p.carrier = newCarrier(capture, call, p.srv)
+	return p
+}
+
+// run serves MCP on r/w and, unless the channel is serve-only, runs the
+// carrier beside it until ctx ends or the reader closes.
+func (p *channelProc) run(ctx context.Context, r io.Reader, w io.Writer) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if p.serveOnly {
+		fmt.Fprintln(os.Stderr, "[muster channel] Claude Code session: serving tools only; the muster plugin's `muster watch` pushes the mail")
+	} else {
+		go p.carrier.Run(ctx)
+	}
+	return p.srv.Run(r, w)
+}
+
+// runChannel serves a claude/channel MCP server on stdio for the session that
+// launched it and runs the carrier beside it. stdout is the protocol.
+//
+// Shutdown has two triggers and both must end the process: the client
+// closing stdin (srv.Run returns), or SIGINT/SIGTERM. signal.NotifyContext
+// suppresses the signal's default action, so if the server loop were the
+// only thing we waited on, a harness that sends SIGTERM while still holding
+// our pipes would leave a process that never exits — measured by the
+// pi-channels client, which had to SIGKILL after a grace period.
+func runChannel() {
+	channel.MaxListed = channelMaxListed()
+	p := newChannelProc(channelCapture(), channel.DaemonClient(paths.SocketPath()))
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	go carrier.Run(ctx)
 	done := make(chan error, 1)
-	go func() { done <- srv.Run(os.Stdin, os.Stdout) }()
+	go func() { done <- p.run(ctx, os.Stdin, os.Stdout) }()
 	select {
 	case <-ctx.Done():
 		// Signalled while the client still holds our pipes: exit now.
@@ -111,4 +152,19 @@ func runChannel() {
 			os.Exit(1)
 		}
 	}
+}
+
+// runWatch is `muster watch`: the channel's carrier, printing each push as
+// one JSON line on stdout for the Claude Code plugin's mod. It binds to the
+// same tmux identity the channel would (the mod starts it as a child of the
+// claude process inside the pane). stdout carries only those lines; every
+// diagnostic goes to stderr. It runs until signalled.
+func runWatch() {
+	channel.MaxListed = channelMaxListed()
+	capture := channelCapture()
+	fmt.Fprintf(os.Stderr, "[muster watch] pane=%q session=%q\n", capture.PaneID, capture.SessionID)
+	c := newCarrier(capture, channel.DaemonClient(paths.SocketPath()), channelmcp.NewLines(os.Stdout))
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	c.Run(ctx)
 }

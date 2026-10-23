@@ -139,7 +139,7 @@ func TestManAndCommandsCoverSelfRouted(t *testing.T) {
 		}
 	}
 	man, _, _ := musterCLI(t, "man")
-	for _, name := range []string{"serve", "mcp", "channel", "debug", "lambda"} {
+	for _, name := range []string{"serve", "mcp", "channel", "watch", "debug", "lambda"} {
 		if !self[name] {
 			t.Errorf("commands --json does not mark %s self-routed", name)
 		}

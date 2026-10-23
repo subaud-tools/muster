@@ -16,7 +16,7 @@ var wantCommandNames = []string{
 	"send", "nudge", "reply", "standing",
 	"agents", "status", "inbox", "tasks", "thread", "events", "tail", "station",
 	"register", "become", "deregister", "label", "whereami", "device", "gc",
-	"serve", "mcp", "channel", "lambda", "hook", "setup", "debug",
+	"serve", "mcp", "channel", "watch", "lambda", "hook", "setup", "debug",
 	// tools.App built-ins
 	"help", "version", "man", "commands", "update",
 }
@@ -26,7 +26,7 @@ var wantCommandNames = []string{
 // (daemon startup, MCP stdio framing, a one-off raw daemon call, the Lambda
 // runtime behind a build tag) this package deliberately doesn't do. Every
 // other Registry command must have a non-nil Run.
-var mainOwnedCommands = map[string]bool{"serve": true, "mcp": true, "channel": true, "lambda": true, "debug": true}
+var mainOwnedCommands = map[string]bool{"serve": true, "mcp": true, "channel": true, "watch": true, "lambda": true, "debug": true}
 
 // TestMCPToolNameAliasesResolve pins the cross-surface aliases: the CLI must
 // accept the MCP tool name for the same operation, so an agent that knows the
