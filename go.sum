@@ -116,8 +116,8 @@ github.com/segmentio/encoding v0.5.4 h1:OW1VRern8Nw6ITAtwSZ7Idrl3MXCFwXHPgqESYfv
 github.com/segmentio/encoding v0.5.4/go.mod h1:HS1ZKa3kSN32ZHVZ7ZLPLXWvOVIiZtyJnO1gPH1sKt0=
 github.com/stretchr/testify v1.7.2 h1:4jaiDzPyXQvSd7D0EjG45355tLlV3VOECpq10pLC+8s=
 github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1FQKckRals=
-github.com/subaud-tools/tools-common v0.15.0 h1:+5Gnx1A2uZ/6rEMeQ5zhou6pUhXVMh7fdmlTcz6c+0Y=
-github.com/subaud-tools/tools-common v0.15.0/go.mod h1:D8+YkaacNci6edZJ2rTG4PjNDFAv9VsI/c1LSXAVdlU=
+github.com/subaud-tools/tools-common v0.17.0 h1:AZE+GKD3CioaFfRo1LNZL73LCWKzW+FFJVzETr/5sd4=
+github.com/subaud-tools/tools-common v0.17.0/go.mod h1:D8+YkaacNci6edZJ2rTG4PjNDFAv9VsI/c1LSXAVdlU=
 github.com/subaud-tools/tools-common/sqlitedb v0.2.0 h1:OcqYw7AArcuP7ZahUkFh9bXTV/Kdt4BP34QskKUmfyw=
 github.com/subaud-tools/tools-common/sqlitedb v0.2.0/go.mod h1:n8UDJ98EYfpsKRfzXz0LnldXoqXM3oAl9f3RglCZkR4=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
