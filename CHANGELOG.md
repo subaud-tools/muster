@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## Unreleased
+
+- In a pi session on the claude-bridge, events arrive once instead of twice: the Claude Code plugin's mod stays quiet there.
+
 ## 0.27.1 — muster setup enables the Claude Code plugin
 
 `muster setup` enables the Claude Code plugin (`muster@muster`) and no longer registers muster-channel; it removes a muster-channel entry left in `~/.claude.json`. The `muster setup --print kempt` block does the same.
