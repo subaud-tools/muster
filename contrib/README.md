@@ -40,7 +40,9 @@ If `muster` isn't on the PATH your harness gives hook commands (e.g. it lives in
 `~/go/bin`), use the absolute binary path in the `command` strings — Codex and
 Cursor in particular do not expand `~`.
 
-**Push delivery (optional, additive):** `claude mcp add muster-channel -s user -- muster channel` registers the channel carrier beside `muster mcp`, and launching with `claude --dangerously-load-development-channels server:muster-channel` loads it as a channel — new mail then lands in the session as a push instead of waiting for the Stop-hook drain. The hooks above stay exactly as configured; they are the fallback when no channel is attached (or the flag is missing).
+**Push delivery (optional, additive):** for Claude Code, run `claude plugin marketplace add subaud-tools/muster` and `claude plugin install muster@muster` (or let `muster setup` enable the plugin), and keep `muster mcp` registered for the bus tools.
+
+New mail then starts a turn in the session instead of waiting for the Stop-hook drain. The hooks above stay exactly as configured; they are the fallback when the plugin isn't installed.
 
 ## 3. Cursor MCP setup
 

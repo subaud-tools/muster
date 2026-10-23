@@ -43,9 +43,10 @@ curl -fsSL https://muster.tools/install.sh | sh
 #    (or build from source with Go 1.26+: go install github.com/subaud-tools/muster/cmd/muster@latest)
 
 # 2. register the MCP server with each agent
-claude mcp add muster -s user -- muster mcp     # Claude Code
-claude mcp add muster-channel -s user -- muster channel   # optional: push delivery (Claude Code channels)
-#    then launch with: claude --dangerously-load-development-channels server:muster-channel
+claude mcp add muster -s user -- muster mcp     # Claude Code: the bus tools
+claude plugin marketplace add subaud-tools/muster   # Claude Code: mail starts a turn
+claude plugin install muster@muster
+#    (or run `muster setup`, which does all of the Claude Code steps)
 codex mcp add muster -- muster mcp              # Codex
 # Cursor Agent: add the mcp.json block shown below, then:
 agent mcp enable muster
@@ -95,7 +96,11 @@ codex mcp add muster -- muster mcp
 
 Each push is an envelope line, then a line containing only `---`, then guidance for that push — the rule for an event travels with the event (what an `fyi` forbids, what an `action-requested` obliges) instead of living in a handshake blob thousands of tokens back. The handshake keeps only the durable core. A batch names the strictest intent present and lists each thread up to `MUSTER_CHANNEL_MAX_LISTED` (default 5); above that it collapses to a count and routes to `get_inbox`. Clients that split on the separator (pi-channels) can dedupe identical guidance across a batch; clients that do not (Claude Code) render it as-is.
 
-Channel servers are not ordinary MCP servers: Claude Code loads one as a channel only when the session is launched naming it — `claude --dangerously-load-development-channels server:muster-channel` for a user-config entry (a packaged plugin form, `--channels plugin:…`, is a follow-up). Without the flag the server runs and its pushes are dropped silently; the badge and Stop-hook drain still deliver the mail. Measured on the first live trial: an idle session woke and replied seven seconds after `muster send`.
+Claude Code hears mail through the muster plugin: install it with `claude plugin marketplace add subaud-tools/muster` and `claude plugin install muster@muster`, or let `muster setup` enable it.
+
+The plugin's mod runs `muster watch` for the session and starts a turn with each push, in a session started with plain `claude`; keep `muster mcp` registered for the bus tools.
+
+Without the plugin, the badge and Stop-hook drain still deliver the mail. Measured on the first live trial: an idle session woke and replied seven seconds after `muster send`.
 
 ```bash
 agent mcp enable muster
