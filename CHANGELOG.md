@@ -2,7 +2,7 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
-## Unreleased
+## 0.27.1 — muster setup enables the Claude Code plugin
 
 `muster setup` enables the Claude Code plugin (`muster@muster`) and no longer registers muster-channel; it removes a muster-channel entry left in `~/.claude.json`. The `muster setup --print kempt` block does the same.
 
