@@ -48,6 +48,16 @@ async function submitPrompt($, text) {
   else if (reason) $.ui.log(NAME + ' event not delivered: ' + reason)
 }
 
+// pi's claude-bridge stamps AGENT_SESSION_CHILD=1 with an AGENT_SESSION_ID on
+// the Claude Code children it spawns (the harness Child rule). The event
+// belongs to the hosting pi session, which its own channel carrier already
+// delivers, so this mod stays quiet there rather than submitting a second turn.
+async function underPi($) {
+  const child = await $.env.get('AGENT_SESSION_CHILD')
+  const id = await $.env.get('AGENT_SESSION_ID')
+  return String(child ?? '') === '1' && String(id ?? '') !== ''
+}
+
 async function watch($, gen) {
   let ended = 'ended'
   try {
@@ -90,7 +100,8 @@ async function watch($, gen) {
   delay = Math.min(delay * 2, MAX_DELAY)
 }
 
-function start($) {
+async function start($) {
+  if (await underPi($)) return
   // session.start runs again on hot reload and /clear: one reader at a time.
   generation += 1
   const old = current
@@ -107,7 +118,7 @@ function start($) {
 export function register(on) {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    start($)
+    await start($)
     return started
   })
 
