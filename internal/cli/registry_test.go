@@ -14,7 +14,7 @@ import (
 // cmd/muster/main.go's routing comment.
 var wantCommandNames = []string{
 	"send", "nudge", "reply", "standing",
-	"agents", "status", "inbox", "tasks", "thread", "events", "watch", "station",
+	"agents", "status", "inbox", "tasks", "thread", "events", "tail", "station",
 	"register", "become", "deregister", "label", "whereami", "device", "gc",
 	"serve", "mcp", "channel", "lambda", "hook", "setup", "debug",
 	// tools.App built-ins

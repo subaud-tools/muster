@@ -420,7 +420,7 @@ func (s *Store) threadMetas(ctx context.Context, ids []int64) (map[int64]map[str
 // hazard is SKIPPING, not lagging. Lagging is the safe direction (a caller
 // that reads a smaller max simply re-asks and sees the event next poll); what
 // is unsafe is returning an id with an unwritten one BELOW it, because the
-// consumers use this value as their cursor verbatim (humancli/watch.go's
+// consumers use this value as their cursor verbatim (humancli/tail.go's
 // follow loop and station/model.go both take max_id and pass it back as
 // AfterID), so a skipped event is never emitted to them at all. Two things
 // produce exactly that: allocate-before-commit, which this is the THIRD

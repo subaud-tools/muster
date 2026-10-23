@@ -225,21 +225,21 @@ current labels; --full-time prints dates, not just times.`,
 			Run:      adapt(cmdEvents),
 		},
 		{
-			Name:     "watch",
-			Synopsis: "watch [--agent <alias>] [--kind <k>] [--thread <id>] [--interval <dur>] [--backlog <n>] [--aliases] [--full-time] [--width <cols>]",
+			Name:     "tail",
+			Synopsis: "tail [--agent <alias>] [--kind <k>] [--thread <id>] [--interval <dur>] [--backlog <n>] [--aliases] [--full-time] [--width <cols>]",
 			Summary:  "Tail the bus journal live.",
 			Help: `Prints the last --backlog matching events, then polls for new ones every
 --interval until interrupted (Ctrl-C). Side-effect-free: watching never
 marks anything read.`,
 			Group:    GroupWatch,
-			NewFlags: newWatchFlags,
-			Run:      adapt(func(args []string, out io.Writer) error { return cmdWatch(args, out, watchOpts{}) }),
+			NewFlags: newTailFlags,
+			Run:      adapt(func(args []string, out io.Writer) error { return cmdTail(args, out, tailOpts{}) }),
 		},
 		{
 			Name:     "station",
 			Synopsis: "station [--interval <dur>] [--aliases] [--width <cols>] [--alias <name>]",
 			Summary:  "Full-screen operator TUI for the bus.",
-			Help:     `A live, navigable projects → agents → threads view of the bus, built on the same event journal 'muster watch' tails.`,
+			Help:     `A live, navigable projects → agents → threads view of the bus, built on the same event journal 'muster tail' follows.`,
 			Group:    GroupWatch,
 			NewFlags: station.FlagSet,
 			Run: adapt(func(args []string, out io.Writer) error {

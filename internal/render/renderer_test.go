@@ -15,7 +15,7 @@ func TestDispTargetScopedBroadcastShownAsIs(t *testing.T) {
 	}
 }
 
-// TestDispStripsTheLocalPrefix covers events/watch/station's alias display
+// TestDispStripsTheLocalPrefix covers events/tail/station's alias display
 // (--aliases mode, or any agent with no label yet): this machine's own
 // prefix comes off, a foreign one is left alone. Same human-surface rule as
 // internal/cli's dispAlias.
@@ -72,7 +72,7 @@ func TestDispRendersBothSidesOfAStripCollisionInFull(t *testing.T) {
 	}
 }
 
-// TestSetLabelsRefreshesTheStripCollisionSet: watch and station both replace
+// TestSetLabelsRefreshesTheStripCollisionSet: tail and station both replace
 // the label map when a newly-registered agent appears, and that is exactly
 // when a collision can come into existence — the set has to be recomputed
 // with it, not frozen at construction.

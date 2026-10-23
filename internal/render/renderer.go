@@ -25,10 +25,10 @@ const (
 	defaultLineWidth = 120 // line budget when $COLUMNS is unset; --width overrides
 )
 
-// Renderer holds the display state shared by events, watch, and the station
+// Renderer holds the display state shared by events, tail, and the station
 // feed pane: the alias→label map, column widths, and time format. Widths are
 // seeded from the rows about to be printed (events) or the backlog
-// (watch/station) and only grow, so columns stay aligned to real content
+// (tail/station) and only grow, so columns stay aligned to real content
 // instead of guessed fixed widths while the feed streams.
 type Renderer struct {
 	labels map[string]string // alias → current label ("" or missing = show the alias)
@@ -64,7 +64,7 @@ func NewRenderer(rows []EventRow, labels map[string]string, aliases, fullTime bo
 }
 
 // HasLabel reports whether alias currently has a non-empty entry in the
-// renderer's label map — used by streaming callers (watch, station's feed)
+// renderer's label map — used by streaming callers (tail, station's feed)
 // to decide whether the map needs a refresh for a newly-seen agent.
 func (r *Renderer) HasLabel(alias string) bool {
 	return r.labels[alias] != ""
@@ -312,7 +312,7 @@ func PadDisplay(s string, w int) string {
 	return s
 }
 
-// Header writes the column header line shared by events, watch, and station.
+// Header writes the column header line shared by events, tail, and station.
 func (r *Renderer) Header(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "%s  %-6s  %s  %s  %s\n",
 		PadDisplay("TIME", len(r.timeFormat())), "KIND", PadDisplay("WHO", r.whoW), PadDisplay("THREAD", r.threadW), "WHAT")

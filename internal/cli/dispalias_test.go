@@ -104,7 +104,7 @@ func TestExpandAliasLeavesUnknownNamesAlone(t *testing.T) {
 
 // TestRosterAliasExistsConstructionIsLazy is the eager-fetch regression this
 // task's review caught: every call site passes rosterAliasExists() as an
-// argument expression to expandAlias — events.go, watch.go, thread.go,
+// argument expression to expandAlias — events.go, tail.go, thread.go,
 // humancli.go, identity.go — even when the operator typed no name to expand
 // at all (an empty --agent, --from, or deregister arg). expandAlias itself
 // already short-circuits on an empty `given` before ever calling `exists`,

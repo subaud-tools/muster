@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestWatchBacklogThenFollowsAndResets(t *testing.T) {
+func TestTailBacklogThenFollowsAndResets(t *testing.T) {
 	startTestDaemon(t)
 	if _, err := callData("register_agent", map[string]any{"alias": "api", "model_type": "claude"}); err != nil {
 		t.Fatal(err)
@@ -17,7 +17,7 @@ func TestWatchBacklogThenFollowsAndResets(t *testing.T) {
 	}
 	polls := 0
 	var out, errw bytes.Buffer
-	o := watchOpts{
+	o := tailOpts{
 		maxPolls: 2,
 		errw:     &errw,
 		wait: func(time.Duration) bool {
@@ -30,7 +30,7 @@ func TestWatchBacklogThenFollowsAndResets(t *testing.T) {
 			return true
 		},
 	}
-	if err := cmdWatch([]string{"--interval", "1ms"}, &out, o); err != nil {
+	if err := cmdTail([]string{"--interval", "1ms"}, &out, o); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
@@ -46,7 +46,7 @@ func TestWatchBacklogThenFollowsAndResets(t *testing.T) {
 	}
 }
 
-func TestWatchBacklogZeroPrintsNoHistory(t *testing.T) {
+func TestTailBacklogZeroPrintsNoHistory(t *testing.T) {
 	startTestDaemon(t)
 	if _, err := callData("register_agent", map[string]any{"alias": "api", "model_type": "claude"}); err != nil {
 		t.Fatal(err)
@@ -55,8 +55,8 @@ func TestWatchBacklogZeroPrintsNoHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	o := watchOpts{maxPolls: 1, wait: func(time.Duration) bool { return true }}
-	if err := cmdWatch([]string{"--backlog", "0"}, &out, o); err != nil {
+	o := tailOpts{maxPolls: 1, wait: func(time.Duration) bool { return true }}
+	if err := cmdTail([]string{"--backlog", "0"}, &out, o); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(out.String(), "old") {
