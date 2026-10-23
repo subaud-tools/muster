@@ -1,0 +1,6 @@
+{
+  "description": "Starts a turn with each muster event",
+  "modules": [
+    "./register.js"
+  ]
+}

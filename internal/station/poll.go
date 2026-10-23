@@ -45,9 +45,9 @@ func tickCmd(interval time.Duration) tea.Cmd {
 	return tea.Tick(interval, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// eventFetchLimit mirrors `muster watch`'s follow-mode call (limit 0 = the
+// eventFetchLimit mirrors `muster tail`'s follow-mode call (limit 0 = the
 // daemon's own cap) — station's tick fetch is a follow-mode poll exactly
-// like watch's, just issued from a tea.Cmd instead of a for-loop.
+// like tail's, just issued from a tea.Cmd instead of a for-loop.
 const eventFetchLimit = 0
 
 func fetchEventsCmd(caller render.Caller, cursor, gen int64) tea.Cmd {
@@ -58,7 +58,7 @@ func fetchEventsCmd(caller render.Caller, cursor, gen int64) tea.Cmd {
 }
 
 // fetchBacklogEventsCmd issues the cold-start (or bootstrap-retry) fetch in
-// BACKLOG mode — afterID -1 — exactly like `muster watch`'s initial fetch.
+// BACKLOG mode — afterID -1 — exactly like `muster tail`'s initial fetch.
 // Follow mode from after_id=0 would let the daemon cap the page at its
 // oldest-1000-row window while still reporting the GLOBAL tail as max_id,
 // silently skipping every event between row 1000 and the tail on a mature

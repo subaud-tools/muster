@@ -301,3 +301,23 @@ func (c *Carrier) Status() string {
 	}
 	return b.String()
 }
+
+// Identify is the part of Status a channel that does not run the carrier can
+// still answer: the pane, and the aliases the daemon holds for it now.
+func (c *Carrier) Identify() string {
+	if c.Ident.paneless() {
+		return "idle: no tmux pane — muster only reaches sessions running inside tmux.\n"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "pane %s on session %s (socket %s)\n", c.Ident.PaneID, c.Ident.SessionID, c.Ident.SocketPath)
+	aliases, err := c.resolve()
+	switch {
+	case err != nil:
+		fmt.Fprintf(&b, "aliases: unknown (%v)\n", err)
+	case len(aliases) == 0:
+		b.WriteString("aliases: none — session not registered on the bus yet; call register_agent (or wait for the SessionStart hook)\n")
+	default:
+		fmt.Fprintf(&b, "aliases: %s\n", strings.Join(aliases, ", "))
+	}
+	return b.String()
+}

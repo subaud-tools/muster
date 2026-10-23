@@ -1,6 +1,6 @@
 // Package render holds the shared bus-journal rendering machinery: decoding
 // list_events pages, resolving the alias→label map, and rendering rows into
-// the WHO/WHAT vocabulary the humancli `events`/`watch` commands and the
+// the WHO/WHAT vocabulary the humancli `events`/`tail` commands and the
 // station TUI's feed pane both use. It has no daemon-transport code of its
 // own — callers hand in a small Caller so render stays a peer of humancli and
 // station rather than a third copy of daemon-client plumbing — and it uses

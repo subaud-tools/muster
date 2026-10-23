@@ -11,16 +11,16 @@ import (
 	"time"
 )
 
-// watchOpts carries the loop's injectable seams. Zero value = production:
+// tailOpts carries the loop's injectable seams. Zero value = production:
 // wait sleeps interval or returns early on signal; maxPolls 0 = forever.
-type watchOpts struct {
+type tailOpts struct {
 	wait     func(d time.Duration) bool // false = shutdown requested
 	maxPolls int
 	errw     io.Writer // stderr for retry/reset notes; nil = os.Stderr
 }
 
-// watchFlagVals holds cmdWatch's parsed flag pointers.
-type watchFlagVals struct {
+// tailFlagVals holds cmdTail's parsed flag pointers.
+type tailFlagVals struct {
 	agent, kind       *string
 	thread            *int64
 	interval          *time.Duration
@@ -28,13 +28,13 @@ type watchFlagVals struct {
 	aliases, fullTime *bool
 }
 
-// newWatchFlagsWithVals declares watch's flags and returns typed access to
-// their values — shared by cmdWatch (real parsing) and newWatchFlags
+// newTailFlagsWithVals declares tail's flags and returns typed access to
+// their values — shared by cmdTail (real parsing) and newTailFlags
 // (registry help/man rendering).
-func newWatchFlagsWithVals() (*flag.FlagSet, watchFlagVals) {
-	fs := flag.NewFlagSet("watch", flag.ContinueOnError)
+func newTailFlagsWithVals() (*flag.FlagSet, tailFlagVals) {
+	fs := flag.NewFlagSet("tail", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	var v watchFlagVals
+	var v tailFlagVals
 	v.agent = fs.String("agent", "", "only events concerning this alias")
 	v.kind = fs.String("kind", "", "only this event kind")
 	v.thread = fs.Int64("thread", 0, "only this thread")
@@ -46,23 +46,23 @@ func newWatchFlagsWithVals() (*flag.FlagSet, watchFlagVals) {
 	return fs, v
 }
 
-// newWatchFlags builds watch's flag.FlagSet for registry-driven help/man
+// newTailFlags builds tail's flag.FlagSet for registry-driven help/man
 // rendering.
-func newWatchFlags() *flag.FlagSet {
-	fs, _ := newWatchFlagsWithVals()
+func newTailFlags() *flag.FlagSet {
+	fs, _ := newTailFlagsWithVals()
 	return fs
 }
 
-// cmdWatch tails the bus journal: prints the last --backlog matching events,
+// cmdTail tails the bus journal: prints the last --backlog matching events,
 // then polls list_events with the max_id cursor every --interval until
 // interrupted. Side-effect-free: never marks anything read.
-func cmdWatch(args []string, out io.Writer, o watchOpts) error {
-	fs, v := newWatchFlagsWithVals()
+func cmdTail(args []string, out io.Writer, o tailOpts) error {
+	fs, v := newTailFlagsWithVals()
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return HelpFor("watch", out)
+			return HelpFor("tail", out)
 		}
-		return fmt.Errorf("usage: muster watch [--agent <alias>] [--thread <id>] [--kind <k>] [--interval <dur>] [--backlog <n>] [--aliases] [--full-time] [--width <cols>]")
+		return fmt.Errorf("usage: muster tail [--agent <alias>] [--thread <id>] [--kind <k>] [--interval <dur>] [--backlog <n>] [--aliases] [--full-time] [--width <cols>]")
 	}
 	agent, kind, thread, interval, backlog, aliases, fullTime, width := v.agent, v.kind, v.thread, v.interval, v.backlog, v.aliases, v.fullTime, v.width
 	if o.errw == nil {
@@ -75,7 +75,7 @@ func cmdWatch(args []string, out io.Writer, o watchOpts) error {
 	// A short local alias must expand before it reaches the daemon's exact
 	// list_events filter, exactly like every other input site. Expanded once
 	// up front — the roster a device name maps against does not change over
-	// one watch invocation's life.
+	// one tail invocation's life.
 	agentArg := expandAlias(*agent, rosterAliasExists())
 
 	page, err := fetchEvents(agentArg, *kind, *thread, -1, *backlog) // backlog mode
@@ -95,11 +95,11 @@ func cmdWatch(args []string, out io.Writer, o watchOpts) error {
 		}
 		page, err := fetchEvents(agentArg, *kind, *thread, cursor, 0) // follow mode
 		if err != nil {
-			_, _ = fmt.Fprintln(o.errw, "watch: poll failed, retrying:", err)
+			_, _ = fmt.Fprintln(o.errw, "tail: poll failed, retrying:", err)
 			continue
 		}
 		if page.MaxID < cursor {
-			_, _ = fmt.Fprintf(o.errw, "watch: journal reset (max id %d < cursor %d) — DB replaced? following from the new tail\n", page.MaxID, cursor)
+			_, _ = fmt.Fprintf(o.errw, "tail: journal reset (max id %d < cursor %d) — DB replaced? following from the new tail\n", page.MaxID, cursor)
 			cursor = page.MaxID
 			continue
 		}

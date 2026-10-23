@@ -142,7 +142,7 @@ muster status --json                       # side-effect-free per-alias unread c
 muster inbox <alias>                       # an agent's threads — addressed to it or started by it
 muster tasks <alias>                       # just the tasks for an agent
 muster events                              # the bus event log: every mailbox notify and inbox read
-muster watch                               # follow the bus live — every message, task, wake and read as it happens
+muster tail                                # follow the bus live — every message, task, wake and read as it happens
 muster station                             # the full-screen operator TUI — projects, agents, threads, compose
 muster commands --json                     # every subcommand, for family CLI discovery
 muster update                              # self-update the binary in place
@@ -358,7 +358,7 @@ never double-counted.
 A message or task carries an optional **intent** — `fyi`, `reply-requested`,
 or `action-requested` (set with `muster send --intent`, or by the MCP
 tools; a task defaults to `action-requested` since it's inherently a
-request). `muster events` and `muster watch` tag rows with it (`[fyi]`,
+request). `muster events` and `muster tail` tag rows with it (`[fyi]`,
 `[reply?]`, `[action]`), and the Stop hook's drain instruction (below)
 splits its count accordingly: "You have N unread muster thread(s), M
 needing action."
@@ -368,7 +368,7 @@ recorded in an event log — `muster events [--agent <alias>] [--limit <n>]` —
 so "whose mailbox was lit when, and when was it cleared" is answerable after
 the fact. Rows now carry the thread's subject alongside its target, so you can
 tell which conversation an event belongs to without a separate lookup.
-`muster watch` is the live view of the same journal: it prints new rows as
+`muster tail` is the live view of the same journal: it prints new rows as
 they land instead of a fixed page, and Ctrl-C exits immediately.
 
 To actively poke an agent to act now:

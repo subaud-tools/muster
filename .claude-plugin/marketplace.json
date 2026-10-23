@@ -1,0 +1,15 @@
+{
+  "name": "muster",
+  "owner": {
+    "name": "Court Schuett",
+    "url": "https://muster.tools"
+  },
+  "description": "muster — a local coordination bus for coding agents.",
+  "plugins": [
+    {
+      "name": "muster",
+      "source": "./plugin/muster",
+      "description": "Agents in different sessions send each other messages and tasks over the muster bus. Bundles muster_channel_status and the mod that starts a turn in this session when mail arrives for it. The bus's own tools come from muster mcp, registered separately."
+    }
+  ]
+}

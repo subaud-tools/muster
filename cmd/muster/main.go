@@ -68,6 +68,12 @@ func main() {
 			return
 		}
 		runChannel()
+	case "watch":
+		if wantsHelp(os.Args[2:]) {
+			_ = cli.HelpFor("watch", os.Stdout)
+			return
+		}
+		runWatch()
 	default:
 		// cli.NewApp (tools.App over cli.Registry) owns the CLI subcommand
 		// list, help, version, man, commands and update, and errors on an
@@ -79,7 +85,7 @@ func main() {
 }
 
 // wantsHelp reports whether the first token after a subcommand name is a
-// help flag. serve/mcp/channel/debug/lambda are owned by main() (not tools.App dispatch),
+// help flag. serve/mcp/channel/watch/debug/lambda are owned by main() (not tools.App dispatch),
 // so their -h/--help handling lives here rather than behind flag.ErrHelp
 // interception the way the cli-dispatched commands do it.
 func wantsHelp(args []string) bool {
