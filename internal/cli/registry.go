@@ -456,6 +456,10 @@ session-lifecycle hooks, and (with --tmux) renders the tmux mailbox — the
 imperative fallback for people not using kempt, applying the exact same
 configuration the kempt package declares so the two paths never drift.
 
+For Claude Code it also enables the muster plugin (muster@muster, from the
+subaud-tools/muster marketplace) in ~/.claude/settings.json, which the next
+claude session installs, and removes the old muster-channel server.
+
 Detection is by config presence: Claude Code (~/.claude or ~/.claude.json),
 Codex (~/.codex), Cursor (~/.cursor). Only detected agents are touched; with
 none found, setup prints how to proceed and changes nothing.

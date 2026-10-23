@@ -2,8 +2,9 @@
 #
 # Drop this [packages.muster] block into your kempt.toml (https://kempt.tools)
 # and run `kempt apply`. kempt installs the binary, registers the MCP server
-# with each agent, installs the session hooks, renders the tmux mailbox, and
-# runs the daemon as a background service — all idempotently, no shell scripts.
+# with each agent, enables the Claude Code plugin, installs the session hooks,
+# renders the tmux mailbox, and runs the daemon as a background service — all
+# idempotently, no shell scripts.
 #
 # This block is emitted verbatim by `muster setup --print kempt`, and is the
 # exact configuration `muster setup` applies for people who do not use kempt,
@@ -29,7 +30,8 @@ only = { os = "darwin" }
 
   [[packages.muster.json-merge]]
   file = "~/.claude.json"
-  merge = { mcpServers = { muster = { type = "stdio", command = "muster", args = ["mcp"], env = {} }, "muster-channel" = { type = "stdio", command = "muster", args = ["channel"], env = {} } } }
+  merge = { mcpServers = { muster = { type = "stdio", command = "muster", args = ["mcp"], env = {} } } }
+  remove = ["mcpServers.muster-channel"]
 
   [[packages.muster.toml-merge]]
   file = "~/.codex/config.toml"
@@ -38,6 +40,12 @@ only = { os = "darwin" }
   [[packages.muster.json-merge]]
   file = "~/.cursor/mcp.json"
   merge = { mcpServers = { muster = { command = "muster", args = ["mcp"] } } }
+
+  # Claude Code hears mail through the muster plugin: the next `claude`
+  # session installs it from this marketplace, no command to run.
+  [[packages.muster.json-merge]]
+  file = "~/.claude/settings.json"
+  merge = { extraKnownMarketplaces = { muster = { source = { source = "github", repo = "subaud-tools/muster" } } }, enabledPlugins = { "muster@muster" = true } }
 
   [[packages.muster.json-merge]]
   file = "~/.claude/settings.json"
