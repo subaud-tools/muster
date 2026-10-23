@@ -100,7 +100,7 @@ Claude Code hears mail through the muster plugin: install it with `claude plugin
 
 The plugin's mod runs `muster watch` for the session and starts a turn with each push, in a session started with plain `claude`; keep `muster mcp` registered for the bus tools.
 
-Without the plugin, the badge and Stop-hook drain still deliver the mail. Measured on the first live trial: an idle session woke and replied seven seconds after `muster send`.
+Without the plugin, the badge and Stop-hook drain still deliver the mail, but an idle session doesn't wake for it.
 
 ```bash
 agent mcp enable muster
