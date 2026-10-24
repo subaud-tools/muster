@@ -18,7 +18,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/muesli/termenv v0.16.0
 	github.com/pelletier/go-toml/v2 v2.4.3
-	github.com/subaud-tools/tools-common v0.17.0
+	github.com/subaud-tools/tools-common v0.18.0
 	github.com/subaud-tools/tools-common/sqlitedb v0.2.0
 )
 

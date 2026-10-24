@@ -161,10 +161,27 @@ func runChannel() {
 // diagnostic goes to stderr. It runs until signalled.
 func runWatch() {
 	channel.MaxListed = channelMaxListed()
-	capture := channelCapture()
-	fmt.Fprintf(os.Stderr, "[muster watch] pane=%q session=%q\n", capture.PaneID, capture.SessionID)
-	c := newCarrier(capture, channel.DaemonClient(paths.SocketPath()), channelmcp.NewLines(os.Stdout))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	err := watch(ctx, os.Stdout, os.Stderr, channelCapture, channel.DaemonClient(paths.SocketPath()))
+	stop()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "muster: watch:", err)
+		os.Exit(1)
+	}
+}
+
+// watch is runWatch until ctx ends, with its identity, daemon and outputs
+// passed in so a test can run it.
+func watch(ctx context.Context, out, errw io.Writer, capture func() tmuxenv.Capture, call channel.Client) error {
+	// In a bridge child this prints the stop line and the mod never restarts
+	// watch: the hosting pi session's channel delivers the mail.
+	lines, run, err := channelmcp.StartWatch(out, "muster")
+	if !run || err != nil {
+		return err
+	}
+	id := capture()
+	_, _ = fmt.Fprintf(errw, "[muster watch] pane=%q session=%q\n", id.PaneID, id.SessionID)
+	c := newCarrier(id, call, lines)
 	c.Run(ctx)
+	return nil
 }
