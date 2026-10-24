@@ -98,6 +98,8 @@ Each push is an envelope line, then a line containing only `---`, then guidance 
 
 Claude Code hears mail through the muster plugin: install it with `claude plugin marketplace add subaud-tools/muster` and `claude plugin install muster@muster`, or let `muster setup` enable it.
 
+Turn on auto-update for the `muster` marketplace so the plugin stays current: in Claude Code, run `/plugin`, open the **Marketplaces** tab, select `muster` and choose **Enable auto-update** (`muster setup` turns it on for you).
+
 The plugin's mod runs `muster watch` for the session and starts a turn with each push, in a session started with plain `claude`; keep `muster mcp` registered for the bus tools.
 
 Without the plugin, the badge and Stop-hook drain still deliver the mail, but an idle session doesn't wake for it.

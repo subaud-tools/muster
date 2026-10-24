@@ -390,8 +390,9 @@ func TestKemptTemplateInstallsUserPromptSubmit(t *testing.T) {
 }
 
 // TestSetupClaudeEnablesPlugin: Claude Code hears mail through the muster
-// plugin, so setup adds its marketplace and enables muster@muster, drops the
-// old muster-channel server and keeps muster mcp for the bus tools.
+// plugin, so setup adds its marketplace with auto-update on and enables
+// muster@muster, drops the old muster-channel server and keeps muster mcp for
+// the bus tools.
 func TestSetupClaudeEnablesPlugin(t *testing.T) {
 	home := setupHome(t)
 	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o755); err != nil {
@@ -412,7 +413,7 @@ func TestSetupClaudeEnablesPlugin(t *testing.T) {
 	}
 
 	settings := readJSON(t, filepath.Join(home, ".claude", "settings.json"))
-	wantMarket := map[string]any{"source": map[string]any{"source": "github", "repo": "subaud-tools/muster"}}
+	wantMarket := map[string]any{"source": map[string]any{"source": "github", "repo": "subaud-tools/muster"}, "autoUpdate": true}
 	markets, _ := settings["extraKnownMarketplaces"].(map[string]any)
 	if got := markets["muster"]; !reflect.DeepEqual(got, wantMarket) {
 		t.Errorf("extraKnownMarketplaces.muster = %#v, want %#v", got, wantMarket)

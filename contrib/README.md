@@ -42,6 +42,8 @@ Cursor in particular do not expand `~`.
 
 **Push delivery (optional, additive):** for Claude Code, run `claude plugin marketplace add subaud-tools/muster` and `claude plugin install muster@muster` (or let `muster setup` enable the plugin), and keep `muster mcp` registered for the bus tools.
 
+Turn on auto-update for the `muster` marketplace so the plugin stays current: in Claude Code, run `/plugin`, open the **Marketplaces** tab, select `muster` and choose **Enable auto-update** (`muster setup` turns it on for you).
+
 New mail then starts a turn in the session instead of waiting for the Stop-hook drain. The hooks above stay exactly as configured; they are the fallback when the plugin isn't installed.
 
 ## 3. Cursor MCP setup
