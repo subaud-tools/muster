@@ -2,7 +2,7 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
-## Unreleased
+## 0.27.4 — muster setup turns on Claude Code auto-update
 
 - `muster setup` turns on Claude Code auto-update for the muster marketplace, so the plugin stays current.
 
