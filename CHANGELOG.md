@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## Unreleased
+
+- `muster setup` turns on Claude Code auto-update for the muster marketplace, so the plugin stays current.
+
 ## 0.27.3 — the Claude Code mod is a thin shim; muster watch decides
 
 - The Claude Code plugin's mod is now a thin shim: `muster watch` decides what each event says and whether a session hears it, so later fixes arrive with the binary.
