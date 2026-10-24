@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -50,7 +51,7 @@ func TestWatchPrintsMailAsOneLine(t *testing.T) {
 
 	r, w := io.Pipe()
 	c := newCarrier(tmuxenv.Capture{SocketPath: "/tmp/tsock", SessionID: "$3", PaneID: "%9", SessionCreated: 1700000000},
-		call, channelmcp.NewLines(w))
+		call, channelmcp.NewLinesFor(w, "muster"))
 	c.Interval = channel.MinInterval
 	c.Errw = io.Discard
 	ctx, cancel := context.WithCancel(context.Background())
@@ -168,5 +169,112 @@ func TestChannelCarriesOnlyOutsideClaudeCode(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Inside pi's claude-bridge the hosting pi session's channel delivers the
+// mail, so `muster watch` prints one stop line and returns at once without
+// reading the journal: the mod then never restarts it.
+func TestWatchStopsInABridgeChild(t *testing.T) {
+	t.Setenv("AGENT_SESSION_CHILD", "1")
+	t.Setenv("AGENT_SESSION_ID", "x")
+	t.Setenv(ChannelIntervalEnv, channel.MinInterval.String())
+	bus := &fakeBus{}
+	capture := func() tmuxenv.Capture {
+		return tmuxenv.Capture{SocketPath: "/tmp/tsock", SessionID: "$3", PaneID: "%9", SessionCreated: 1}
+	}
+	var out bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	done := make(chan error, 1)
+	go func() { done <- watch(ctx, &out, io.Discard, capture, bus.call) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("watch = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("muster watch started its carrier in a bridge child")
+	}
+	bus.mu.Lock()
+	n := bus.reads
+	bus.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("watch read the journal %d times in a bridge child", n)
+	}
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	var stop struct {
+		Stop string `json:"stop"`
+	}
+	if len(lines) != 1 || json.Unmarshal([]byte(lines[0]), &stop) != nil || stop.Stop == "" {
+		t.Fatalf("want exactly one stop line, got %q", out.String())
+	}
+}
+
+// Outside the bridge `muster watch` prints each push with `text`, the whole
+// prompt the plugin's mod submits as the turn.
+func TestWatchLineCarriesText(t *testing.T) {
+	t.Setenv("AGENT_SESSION_CHILD", "")
+	t.Setenv("AGENT_SESSION_ID", "")
+	t.Setenv(ChannelIntervalEnv, channel.MinInterval.String())
+	dir, cleanup, err := mustertest.ShortHome()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	t.Setenv("MUSTER_HOME", dir)
+	t.Setenv("MUSTER_NO_AUTOSPAWN", "1")
+	s, err := store.Open(filepath.Join(dir, "bus.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	sock := filepath.Join(dir, "sock")
+	d, err := daemon.Serve(sock, s, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.Close() })
+	call := channel.DaemonClient(sock)
+	if _, err := call("register_agent", map[string]any{"alias": "worker", "role": "producer", "model_type": "claude",
+		"socket_path": "/tmp/tsock", "session_id": "$3", "pane_id": "%9", "session_name": "worker", "session_created": 1700000000}); err != nil {
+		t.Fatal(err)
+	}
+	capture := func() tmuxenv.Capture {
+		return tmuxenv.Capture{SocketPath: "/tmp/tsock", SessionID: "$3", PaneID: "%9", SessionCreated: 1700000000}
+	}
+
+	r, w := io.Pipe()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = watch(ctx, w, io.Discard, capture, call) }()
+
+	lines := make(chan string, 1)
+	go func() {
+		sc := bufio.NewScanner(r)
+		sc.Buffer(make([]byte, 1<<20), 1<<24)
+		if sc.Scan() {
+			lines <- sc.Text()
+		}
+	}()
+	time.Sleep(2 * channel.MinInterval) // the carrier places its cursor first
+	if _, err := call("send_message", map[string]any{"from": "lead", "to_kind": "agent", "to_target": "worker",
+		"subject": "review the branch", "body": "please", "intent": "action-requested"}); err != nil {
+		t.Fatal(err)
+	}
+	var line string
+	select {
+	case line = <-lines:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no line printed for the mail")
+	}
+	var ev struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal([]byte(line), &ev); err != nil {
+		t.Fatalf("not one JSON line: %q (%v)", line, err)
+	}
+	if !strings.HasPrefix(ev.Text, "muster event") {
+		t.Fatalf("text = %q, want it to start with \"muster event\"", ev.Text)
 	}
 }
