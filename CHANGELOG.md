@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## Unreleased
+
+- The Claude Code plugin's mod is now a thin shim: `muster watch` decides what each event says and whether a session hears it, so later fixes arrive with the binary.
+
 ## 0.27.2 — events arrive once in a pi bridge session
 
 - In a pi session on the claude-bridge, events arrive once instead of twice: the Claude Code plugin's mod stays quiet there.

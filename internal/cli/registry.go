@@ -414,10 +414,11 @@ a "---" line, then guidance for that event. stdout is the MCP protocol — diagn
 			Synopsis: "watch",
 			Summary:  "Print new mail for this session as JSON lines — the Claude Code plugin's feed.",
 			Help: `Runs the same carrier as 'muster channel' for this tmux session's aliases
-and prints each push as one JSON line {"content": ..., "meta": {...}} on
-stdout. The muster plugin's mod runs it for a Claude Code session and starts
-a turn with each line. To follow the whole bus yourself, use 'muster tail'.
-Diagnostics go to stderr. Runs until signalled.`,
+and prints each push as one JSON line {"text": ..., "content": ..., "meta":
+{...}} on stdout. The muster plugin's mod runs it for a Claude Code session
+and starts a turn with each line's text. To follow the whole bus yourself,
+use 'muster tail'. Diagnostics go to stderr. Runs until signalled. In a
+session pi's claude-bridge runs, it prints {"stop": ...} and exits 0.`,
 			Group: GroupPlumbing,
 		},
 		{
