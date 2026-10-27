@@ -48,7 +48,8 @@ for arch in arm64 amd64; do
 done
 
 # Recompute checksums across the FULL asset set — signed darwin, CI's linux,
-# and the Lambda zip for the hosted backend. This file replaces CI's, so every
+# and the Lambda zip for the hosted backend (from muster.tools/dl, where the
+# release publishes it). This file replaces CI's, so every
 # asset CI checksummed has to be downloaded and re-hashed here: anything left
 # out silently vanishes from checksums.txt and looks like an unverifiable
 # download to whoever fetches it. The zip is a linux/arm64 binary and is not
@@ -59,8 +60,8 @@ done
 # install.sh --with-deploy fails outright with "no checksum found".
 (cd "$work" && \
   gh release download "$tag" --repo "$repo" \
-    --pattern "muster_linux_*.tar.gz" --pattern "muster-deploy_linux_*.tar.gz" \
-    --pattern "muster-lambda-*.zip" && \
+    --pattern "muster_linux_*.tar.gz" --pattern "muster-deploy_linux_*.tar.gz" && \
+  curl -fsSLO "https://muster.tools/dl/muster/$version/muster-lambda-arm64-$tag.zip" && \
   shasum -a 256 muster_*.tar.gz muster-deploy_*.tar.gz muster-lambda-*.zip > checksums.txt && \
   gh release upload "$tag" muster_darwin_*.tar.gz muster-deploy_darwin_*.tar.gz \
     checksums.txt --clobber --repo "$repo")

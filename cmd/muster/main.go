@@ -76,7 +76,7 @@ func main() {
 		runWatch()
 	default:
 		// cli.NewApp (tools.App over cli.Registry) owns the CLI subcommand
-		// list, help, version, man, commands and update, and errors on an
+		// list, help, version, man, commands, update, login and logout, and errors on an
 		// unknown command — routing everything here keeps that list canonical
 		// (a second list in this switch once shipped a release whose usage
 		// advertised a subcommand main() refused to route).

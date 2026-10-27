@@ -77,7 +77,8 @@ Parameters:
     Type: String
     MinLength: 3
     Description: >-
-      S3 bucket holding muster-lambda-arm64.zip from the GitHub release. Must
+      S3 bucket holding the release's Lambda zip, from
+      https://muster.tools/dl/muster/<version>/. Must
       be in the same region as this stack. CloudFormation cannot fetch code
       over HTTPS, so the zip has to be staged in S3 first.
 

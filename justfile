@@ -61,17 +61,10 @@ build:
 # Tool-specific checks beyond the gate (CI runs this too): the Lambda
 # artifact's build (-tags lambda, the only build that links the AWS SDK; no
 # other recipe builds it, so without this the tagged code would rot silently
-# until a release tried to ship it), the AWS-free device binary, and the
-# Claude Code plugin.
-verify-extra: aws-free plugin-valid
+# until a release tried to ship it) and the AWS-free device binary. The Claude
+# Code plugin lives in subaud-tools/plugins, which validates it.
+verify-extra: aws-free
     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda -o /dev/null ./cmd/muster
-
-# The Claude Code plugin passes Claude Code's own validator. Pinned, and run
-# through npx, so CI's runner needs nothing installed and no login. Not
-# --strict: the manifest carries no version on purpose (Claude Code then
-# versions the plugin by commit), and the validator warns about that.
-plugin-valid:
-    npx -y @anthropic-ai/claude-code@2.1.309 plugin validate plugin/muster
 
 # Assert the device binary links no AWS code. This is the enforcement half of
 # CLAUDE.md's hard rule: cmd/muster-deploy and the -tags lambda build may

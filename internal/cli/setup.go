@@ -238,9 +238,11 @@ func agentOps(home, agent, mbAbs, mbTilde string, noHooks bool) []fileOp {
 			{
 				path: settings,
 				disp: "~/.claude/settings.json",
-				desc: "the muster@muster plugin",
-				desired: mustJSON(`{"extraKnownMarketplaces":{"muster":{"source":{"source":"github","repo":"subaud-tools/muster"},"autoUpdate":true}},` +
-					`"enabledPlugins":{"muster@muster":true}}`),
+				desc: "the muster@subaud-tools plugin, without muster@muster",
+				desired: mustJSON(`{"extraKnownMarketplaces":{"subaud-tools":{"source":{"source":"github","repo":"subaud-tools/plugins"},"autoUpdate":true}},` +
+					`"enabledPlugins":{"muster@subaud-tools":true}}`),
+				// The plugin moved from muster's own marketplace to subaud-tools/plugins.
+				remove: []string{"extraKnownMarketplaces.muster", "enabledPlugins.muster@muster"},
 			},
 		}
 		if !noHooks {
