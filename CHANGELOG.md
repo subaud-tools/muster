@@ -2,8 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
-## Unreleased
+## 0.28.0 — the plugin moves to subaud-tools/plugins; the Lambda zip comes from muster.tools/dl
 
+- The Claude Code plugin moves to the `subaud-tools/plugins` marketplace. `muster setup` enables `muster@subaud-tools` with auto-update and removes the old `muster@muster` plugin and `muster` marketplace; the `muster setup --print kempt` block does the same.
+- `muster login` and `muster logout` sign the machine in to and out of the subaud.tools account, as every family tool does (tools-common 0.30.0). Nothing needs them yet: `muster update` still downloads anonymously.
 - `muster-deploy` downloads the Lambda zip from `muster.tools/dl/muster/<version>/` and checks it against the `.sha256` published beside it, instead of from the GitHub release. The `-repo` flag is gone: a self-hosted fork builds its own zip and passes `-zip`. Releases from before the zip was on muster.tools/dl need `-zip`.
 
 ## 0.27.4 — muster setup turns on Claude Code auto-update
