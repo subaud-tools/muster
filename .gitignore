@@ -24,7 +24,3 @@ docs/superpowers/
 # Design docs never live in this public repo: specs and plans are in private tools-ops (docs/<repo>/).
 docs/specs/
 docs/plans/
-
-# Claude Code writes the mods API types here when the plugin is loaded with --plugin-dir.
-plugin/muster/tsconfig.json
-plugin/muster/.claude-plugin/types/

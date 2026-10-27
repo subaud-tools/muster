@@ -390,7 +390,8 @@ func TestKemptTemplateInstallsUserPromptSubmit(t *testing.T) {
 }
 
 // TestSetupClaudeEnablesPlugin: Claude Code hears mail through the muster
-// plugin, so setup adds its marketplace with auto-update on and enables
+// plugin, so setup adds the subaud-tools marketplace with auto-update on and
+// enables muster@subaud-tools, drops the old muster marketplace and
 // muster@muster, drops the old muster-channel server and keeps muster mcp for
 // the bus tools.
 func TestSetupClaudeEnablesPlugin(t *testing.T) {
@@ -400,6 +401,10 @@ func TestSetupClaudeEnablesPlugin(t *testing.T) {
 	}
 	seed := `{"mcpServers":{"muster-channel":{"type":"stdio","command":"muster","args":["channel"],"env":{}}}}`
 	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := `{"extraKnownMarketplaces":{"muster":{"source":{"source":"github","repo":"subaud-tools/muster"},"autoUpdate":true}},"enabledPlugins":{"muster@muster":true}}`
+	if err := os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(old), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	runSetup(t)
@@ -413,14 +418,20 @@ func TestSetupClaudeEnablesPlugin(t *testing.T) {
 	}
 
 	settings := readJSON(t, filepath.Join(home, ".claude", "settings.json"))
-	wantMarket := map[string]any{"source": map[string]any{"source": "github", "repo": "subaud-tools/muster"}, "autoUpdate": true}
+	wantMarket := map[string]any{"source": map[string]any{"source": "github", "repo": "subaud-tools/plugins"}, "autoUpdate": true}
 	markets, _ := settings["extraKnownMarketplaces"].(map[string]any)
-	if got := markets["muster"]; !reflect.DeepEqual(got, wantMarket) {
-		t.Errorf("extraKnownMarketplaces.muster = %#v, want %#v", got, wantMarket)
+	if got := markets["subaud-tools"]; !reflect.DeepEqual(got, wantMarket) {
+		t.Errorf("extraKnownMarketplaces.subaud-tools = %#v, want %#v", got, wantMarket)
+	}
+	if got, ok := markets["muster"]; ok {
+		t.Errorf("extraKnownMarketplaces.muster = %#v, want removed", got)
 	}
 	plugins, _ := settings["enabledPlugins"].(map[string]any)
-	if got := plugins["muster@muster"]; got != true {
-		t.Errorf("enabledPlugins[muster@muster] = %#v, want true", got)
+	if got := plugins["muster@subaud-tools"]; got != true {
+		t.Errorf("enabledPlugins[muster@subaud-tools] = %#v, want true", got)
+	}
+	if got, ok := plugins["muster@muster"]; ok {
+		t.Errorf("enabledPlugins[muster@muster] = %#v, want removed", got)
 	}
 }
 

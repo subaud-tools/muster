@@ -40,9 +40,9 @@ If `muster` isn't on the PATH your harness gives hook commands (e.g. it lives in
 `~/go/bin`), use the absolute binary path in the `command` strings — Codex and
 Cursor in particular do not expand `~`.
 
-**Push delivery (optional, additive):** for Claude Code, run `claude plugin marketplace add subaud-tools/muster` and `claude plugin install muster@muster` (or let `muster setup` enable the plugin), and keep `muster mcp` registered for the bus tools.
+**Push delivery (optional, additive):** for Claude Code, run `claude plugin marketplace add subaud-tools/plugins` and `claude plugin install muster@subaud-tools` (or let `muster setup` enable the plugin), and keep `muster mcp` registered for the bus tools.
 
-Turn on auto-update for the `muster` marketplace so the plugin stays current: in Claude Code, run `/plugin`, open the **Marketplaces** tab, select `muster` and choose **Enable auto-update**.
+Turn on auto-update for the `subaud-tools` marketplace so the plugin stays current: in Claude Code, run `/plugin`, open the **Marketplaces** tab, select `subaud-tools` and choose **Enable auto-update**.
 
 New mail then starts a turn in the session instead of waiting for the Stop-hook drain. The hooks above stay exactly as configured; they are the fallback when the plugin isn't installed.
 
