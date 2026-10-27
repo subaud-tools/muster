@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.28.1 — muster-deploy asks for the right signed link
+
+- Once muster.tools is gated, `muster-deploy` asks the access service for the Lambda zip's signed link at `muster/<version>/<file>`, the path the service takes; 0.28.0 left out the `muster/` and would have been refused. Nothing changes today: muster.tools is still open.
+
 ## 0.28.0 — the plugin moves to subaud-tools/plugins; the Lambda zip comes from muster.tools/dl
 
 - The Claude Code plugin moves to the `subaud-tools/plugins` marketplace. `muster setup` enables `muster@subaud-tools` with auto-update and removes the old `muster@muster` plugin and `muster` marketplace; the `muster setup --print kempt` block does the same.
