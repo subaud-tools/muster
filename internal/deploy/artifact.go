@@ -1,17 +1,24 @@
 package deploy
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/subaud-tools/tools-common/auth"
+
+	"github.com/subaud-tools/muster/internal/version"
 )
 
 // DLBase is muster.tools' download page, where the release workflow
@@ -40,13 +47,21 @@ func ArtifactURL(base, tag string) string {
 	return fmt.Sprintf("%s/muster/%s/%s", base, strings.TrimPrefix(tag, "v"), ArtifactName(tag))
 }
 
+// gated and link are version.Gated and auth.Link, as variables so a test can
+// fetch through a link source of its own.
+var (
+	gated = version.Gated
+	link  = auth.Link
+)
+
 // fetchArtifact downloads a tag's Lambda zip from base and checks it against
 // the .sha256 published beside it, failing closed: the zip becomes a Lambda
 // holding the bus token, so bytes that do not match what the release
 // published never reach S3. It returns the zip's path and a cleanup func.
 func fetchArtifact(base, tag string) (path string, cleanup func(), err error) {
 	url := ArtifactURL(base, tag)
-	sumPath, sumCleanup, err := download(url + ".sha256")
+	dir := strings.TrimPrefix(tag, "v") + "/"
+	sumPath, sumCleanup, err := fetch(url+".sha256", dir+ArtifactName(tag)+".sha256")
 	if err != nil {
 		return "", nil, err
 	}
@@ -60,7 +75,7 @@ func fetchArtifact(base, tag string) (path string, cleanup func(), err error) {
 		want = strings.ToLower(f[0])
 	}
 
-	path, cleanup, err = download(url)
+	path, cleanup, err = fetch(url, dir+ArtifactName(tag))
 	if err != nil {
 		return "", nil, err
 	}
@@ -81,6 +96,24 @@ func fetchArtifact(base, tag string) (path string, cleanup func(), err error) {
 		return "", nil, fmt.Errorf("download %s: checksum mismatch against %s.sha256", url, ArtifactName(tag))
 	}
 	return path, cleanup, nil
+}
+
+// fetch downloads url, or for a gated muster.tools the signed link to path
+// (relative to /dl/muster/), the way `muster update` fetches.
+func fetch(url, path string) (string, func(), error) {
+	if !gated {
+		return download(url)
+	}
+	signed, err := link(context.Background(), "muster", path)
+	switch {
+	case errors.Is(err, auth.ErrNotSignedIn):
+		return "", nil, errors.New("this machine is not signed in to subaud.tools: run `muster login`")
+	case errors.Is(err, auth.ErrSignInRefused):
+		return "", nil, errors.New("subaud.tools refused this machine's sign-in: run `muster login` to sign in again")
+	case err != nil:
+		return "", nil, err
+	}
+	return download(signed)
 }
 
 // ReleaseTag turns a version stamp into its release tag. Release tags carry a
@@ -154,10 +187,16 @@ func Fingerprint(tok string) string {
 // cleanup func. It streams to disk rather than into memory: the caller hands
 // the result straight to S3, which wants an io.Reader it can seek for the
 // checksum anyway.
-func download(url string) (path string, cleanup func(), err error) {
+func download(rawURL string) (path string, cleanup func(), err error) {
+	// A signed link's query is its signature: name the file without it.
+	url := strings.SplitN(rawURL, "?", 2)[0]
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	resp, err := client.Get(rawURL)
 	if err != nil {
+		var ue *neturl.Error
+		if errors.As(err, &ue) {
+			err = ue.Err
+		}
 		return "", nil, fmt.Errorf("download %s: %w", url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()

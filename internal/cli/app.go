@@ -53,6 +53,7 @@ func NewApp() *tools.App {
 		},
 		Groups: groups,
 		About:  about(),
+		Gated:  version.Gated,
 	})
 	for _, c := range Registry {
 		if c.Run != nil {

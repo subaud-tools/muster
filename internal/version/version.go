@@ -29,3 +29,10 @@ func Commit() string { return commit }
 
 // Date returns the stamped build date ("" if unstamped).
 func Date() string { return date }
+
+// Gated says muster.tools/dl is closed to anyone not signed in, so every
+// download goes through a signed link from subaud.tools. It is the one switch
+// for muster: `muster update` (tools.Config.Gated in internal/cli/app.go) and
+// muster-deploy's Lambda zip fetch (internal/deploy) both read it, so flipping
+// it when muster.tools is gated switches update and deploy together.
+const Gated = false

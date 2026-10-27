@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -78,6 +79,36 @@ func TestFetchArtifactChecksItsSHA256(t *testing.T) {
 	defer cleanup()
 	if got, _ := os.ReadFile(path); string(got) != string(zip) {
 		t.Fatalf("fetched %q, want %q", got, zip)
+	}
+}
+
+func TestFetchArtifactFetchesAGatedReleaseThroughSignedLinks(t *testing.T) {
+	zip := []byte("lambda zip bytes")
+	sum := sha256.Sum256(zip)
+	signed := serveArtifact(t, "v0.27.4", zip, hex.EncodeToString(sum[:]))
+
+	defer func(g bool, l func(context.Context, string, string) (string, error)) { gated, link = g, l }(gated, link)
+	gated = true
+	var asked []string
+	link = func(_ context.Context, product, path string) (string, error) {
+		asked = append(asked, product+" "+path)
+		return signed + "/muster/" + path + "?sig=x", nil
+	}
+
+	path, cleanup, err := fetchArtifact("https://unreachable.invalid", "v0.27.4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if got, _ := os.ReadFile(path); string(got) != string(zip) {
+		t.Fatalf("fetched %q, want %q", got, zip)
+	}
+	want := []string{
+		"muster 0.27.4/muster-lambda-arm64-v0.27.4.zip.sha256",
+		"muster 0.27.4/muster-lambda-arm64-v0.27.4.zip",
+	}
+	if strings.Join(asked, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("asked for links %q, want %q", asked, want)
 	}
 }
 
