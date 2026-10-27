@@ -61,9 +61,9 @@ On **each** machine:
 # 1. the binary, under a distinct name.
 #    Swap darwin_arm64 for your platform: the four assets are
 #    muster_{darwin,linux}_{arm64,amd64}.tar.gz — NOT version-stamped,
-#    the tag in the URL path is what selects the build.
+#    the version in the URL path (the rc tag without its v) selects the build.
 curl -fsSL -o /tmp/muster-rc.tar.gz \
-  https://github.com/subaud-tools/muster/releases/download/<rc-tag>/muster_darwin_arm64.tar.gz
+  https://muster.tools/dl/muster/<rc-version>/muster_darwin_arm64.tar.gz
 tar xzf /tmp/muster-rc.tar.gz -C /tmp
 install -m755 /tmp/muster ~/.local/bin/muster-rc
 muster-rc --version        # expect <rc-tag>

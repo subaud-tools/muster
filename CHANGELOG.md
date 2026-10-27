@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## Unreleased
+
+- `muster-deploy` downloads the Lambda zip from `muster.tools/dl/muster/<version>/` and checks it against the `.sha256` published beside it, instead of from the GitHub release. The `-repo` flag is gone: a self-hosted fork builds its own zip and passes `-zip`. Releases from before the zip was on muster.tools/dl need `-zip`.
+
 ## 0.27.4 — muster setup turns on Claude Code auto-update
 
 - `muster setup` turns on Claude Code auto-update for the muster marketplace, so the plugin stays current.

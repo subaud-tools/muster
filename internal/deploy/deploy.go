@@ -46,7 +46,6 @@ type Options struct {
 	Region    string // "" defers to the AWS config chain
 	Bucket    string // "" derives muster-artifacts-<account>
 	Tag       string // release tag to fetch the Lambda zip from
-	Repo      string // GitHub repo for release downloads
 	ZipPath   string // local zip instead of a release download
 	Token     string // "" generates one (new stack) or keeps the current one (update)
 	TokenFile string // where to write a freshly generated token
@@ -103,9 +102,6 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	}
 	if o.Stack == "" {
 		o.Stack = "muster"
-	}
-	if o.Repo == "" {
-		o.Repo = Repo
 	}
 	if o.Wait <= 0 {
 		o.Wait = 30 * time.Minute
@@ -246,11 +242,10 @@ func uploadArtifact(ctx context.Context, api *s3.Client, o Options) (string, err
 			return "", errors.New("no Lambda artifact: pass -zip <path>, or -tag <release> to download one " +
 				"(an unstamped dev build cannot infer its own release)")
 		}
-		url := ArtifactURL(o.Repo, o.Tag)
-		o.logf("downloading %s\n", url)
+		o.logf("downloading %s\n", ArtifactURL(DLBase, o.Tag))
 		var cleanup func()
 		var err error
-		path, cleanup, err = download(url)
+		path, cleanup, err = fetchArtifact(DLBase, o.Tag)
 		if err != nil {
 			return "", err
 		}

@@ -106,8 +106,8 @@ on one machine, once:
 curl -fsSL https://muster.tools/install.sh | sh -s -- --with-deploy
 ```
 
-(or grab the `muster-deploy_<os>_<arch>.tar.gz` asset from
-<https://github.com/subaud-tools/muster/releases> by hand). Then:
+(or grab `muster-deploy_<os>_<arch>.tar.gz` from
+`https://muster.tools/dl/muster/<version>/` by hand). Then:
 
 ```sh
 muster-deploy --region us-east-1
@@ -116,8 +116,9 @@ muster-deploy --region us-east-1
 That is the whole deployment. It resolves your account from the ambient AWS
 credentials (`AWS_PROFILE` and `AWS_REGION` work as they do for any AWS
 command), creates an artifact bucket if you have none, downloads the Lambda
-zip matching its own version, uploads it, creates the stack, waits, and prints
-the endpoint.
+zip matching its own version from muster.tools/dl and checks it against the
+`.sha256` published beside it, uploads it, creates the stack, waits, and
+prints the endpoint.
 
 On a **first** deploy it also generates a bearer token and writes it to
 `<MUSTER_HOME>/remote-token` with mode 0600 — it does not print it. That is
@@ -186,9 +187,10 @@ is the manual equivalent.
 ### The manual way
 
 Use this if you would rather see every step, or if you need to change something
-`muster-deploy` does not expose. You need the release assets:
-`muster-lambda-arm64-<tag>.zip` from
-<https://github.com/subaud-tools/muster/releases>, and
+`muster-deploy` does not expose. You need the release's Lambda zip,
+`muster-lambda-arm64-<tag>.zip`, from `https://muster.tools/dl/muster/<version>/`
+(`<version>` is the tag without its `v`; check it against the
+`muster-lambda-arm64-<tag>.zip.sha256` beside it), and
 `contrib/cloudformation/muster-backend.yaml` from this repository — the same
 file `muster-deploy` embeds, so both paths deploy identical bytes.
 
@@ -687,7 +689,7 @@ message that sends you off investigating DynamoDB TTL instead of your policy.
 
 **The function exits at cold start saying it was "built without lambda mode".**
 The zip contains a binary built without `-tags lambda`, so lambda mode compiled
-out to a stub. Use the `muster-lambda-arm64-*.zip` from the release rather than
+out to a stub. Use the release's `muster-lambda-arm64-*.zip` from muster.tools/dl rather than
 a locally cross-compiled binary, or build it the way the release workflow does.
 
 **`muster agents` shows an empty roster on one device.** Almost always that

@@ -36,7 +36,6 @@ func run() int {
 		region = fs.String("region", "", "AWS region (default: AWS_REGION or your profile's region)")
 		bucket = fs.String("bucket", "", "artifact bucket (default: muster-artifacts-<account>, created if absent)")
 		tag    = fs.String("tag", "", "release tag to fetch the Lambda artifact from (default: this binary's version)")
-		repo   = fs.String("repo", deploy.Repo, "GitHub repo to download release artifacts from")
 		zip    = fs.String("zip", "", "local Lambda zip instead of downloading a release artifact")
 		token  = fs.String("token", "", "bearer token (default: generate on first deploy, keep the existing one on update)")
 		tokFil = fs.String("token-file", "", "where to write a generated token (default: <MUSTER_HOME>/remote-token)")
@@ -99,7 +98,7 @@ func run() int {
 	}
 
 	res, err := deploy.Run(ctx, deploy.Options{
-		Stack: *stack, Region: *region, Bucket: *bucket, Tag: *tag, Repo: *repo,
+		Stack: *stack, Region: *region, Bucket: *bucket, Tag: *tag,
 		ZipPath: *zip, Token: *token, TokenFile: *tokFil, Wait: *wait, Out: os.Stdout,
 		Domain: *domain, HostedZoneID: *zone, CertARN: *cert, RemoveDomain: *rmDom,
 	})
