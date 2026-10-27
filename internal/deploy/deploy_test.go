@@ -1,9 +1,13 @@
 package deploy
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -36,9 +40,83 @@ func TestArtifactNameMatchesReleaseWorkflow(t *testing.T) {
 	if got, want := ArtifactName("v0.11.0"), "muster-lambda-arm64-v0.11.0.zip"; got != want {
 		t.Fatalf("ArtifactName = %q, want %q", got, want)
 	}
-	if got, want := ArtifactURL("subaud-tools/muster", "v0.11.0"),
-		"https://github.com/subaud-tools/muster/releases/download/v0.11.0/muster-lambda-arm64-v0.11.0.zip"; got != want {
+	// go-release publishes extra assets under the bare semver, beside the
+	// tarballs; the zip's own name keeps the tag.
+	if got, want := ArtifactURL(DLBase, "v0.11.0"),
+		"https://muster.tools/dl/muster/0.11.0/muster-lambda-arm64-v0.11.0.zip"; got != want {
 		t.Fatalf("ArtifactURL = %q, want %q", got, want)
+	}
+}
+
+// serveArtifact serves a tag's zip and a .sha256 sidecar holding sum, the
+// way go-release lays them out under /dl.
+func serveArtifact(t *testing.T, tag string, zip []byte, sum string) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		zipPath := "/muster/" + strings.TrimPrefix(tag, "v") + "/" + ArtifactName(tag)
+		switch r.URL.Path {
+		case zipPath:
+			_, _ = w.Write(zip)
+		case zipPath + ".sha256":
+			_, _ = io.WriteString(w, sum+"  "+ArtifactName(tag)+"\n")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+func TestFetchArtifactChecksItsSHA256(t *testing.T) {
+	zip := []byte("lambda zip bytes")
+	sum := sha256.Sum256(zip)
+	base := serveArtifact(t, "v0.27.4", zip, hex.EncodeToString(sum[:]))
+
+	path, cleanup, err := fetchArtifact(base, "v0.27.4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if got, _ := os.ReadFile(path); string(got) != string(zip) {
+		t.Fatalf("fetched %q, want %q", got, zip)
+	}
+}
+
+func TestFetchArtifactFetchesAGatedReleaseThroughSignedLinks(t *testing.T) {
+	zip := []byte("lambda zip bytes")
+	sum := sha256.Sum256(zip)
+	signed := serveArtifact(t, "v0.27.4", zip, hex.EncodeToString(sum[:]))
+
+	defer func(g bool, l func(context.Context, string, string) (string, error)) { gated, link = g, l }(gated, link)
+	gated = true
+	var asked []string
+	link = func(_ context.Context, product, path string) (string, error) {
+		asked = append(asked, product+" "+path)
+		return signed + "/muster/" + path + "?sig=x", nil
+	}
+
+	path, cleanup, err := fetchArtifact("https://unreachable.invalid", "v0.27.4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if got, _ := os.ReadFile(path); string(got) != string(zip) {
+		t.Fatalf("fetched %q, want %q", got, zip)
+	}
+	want := []string{
+		"muster 0.27.4/muster-lambda-arm64-v0.27.4.zip.sha256",
+		"muster 0.27.4/muster-lambda-arm64-v0.27.4.zip",
+	}
+	if strings.Join(asked, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("asked for links %q, want %q", asked, want)
+	}
+}
+
+func TestFetchArtifactRefusesAChecksumMismatch(t *testing.T) {
+	base := serveArtifact(t, "v0.27.4", []byte("tampered"), strings.Repeat("0", 64))
+
+	if _, _, err := fetchArtifact(base, "v0.27.4"); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("err = %v, want a checksum mismatch", err)
 	}
 }
 

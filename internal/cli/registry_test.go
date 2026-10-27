@@ -18,7 +18,7 @@ var wantCommandNames = []string{
 	"register", "become", "deregister", "label", "whereami", "device", "gc",
 	"serve", "mcp", "channel", "watch", "lambda", "hook", "setup", "debug",
 	// tools.App built-ins
-	"help", "version", "man", "commands", "update",
+	"help", "version", "man", "commands", "update", "login", "logout",
 }
 
 // mainOwnedCommands are the Registry names cmd/muster's main() dispatches

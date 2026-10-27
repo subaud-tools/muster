@@ -44,8 +44,8 @@ curl -fsSL https://muster.tools/install.sh | sh
 
 # 2. register the MCP server with each agent
 claude mcp add muster -s user -- muster mcp     # Claude Code: the bus tools
-claude plugin marketplace add subaud-tools/muster   # Claude Code: mail starts a turn
-claude plugin install muster@muster
+claude plugin marketplace add subaud-tools/plugins  # Claude Code: mail starts a turn
+claude plugin install muster@subaud-tools
 #    (or run `muster setup`, which does all of the Claude Code steps)
 codex mcp add muster -- muster mcp              # Codex
 # Cursor Agent: add the mcp.json block shown below, then:
@@ -96,9 +96,9 @@ codex mcp add muster -- muster mcp
 
 Each push is an envelope line, then a line containing only `---`, then guidance for that push — the rule for an event travels with the event (what an `fyi` forbids, what an `action-requested` obliges) instead of living in a handshake blob thousands of tokens back. The handshake keeps only the durable core. A batch names the strictest intent present and lists each thread up to `MUSTER_CHANNEL_MAX_LISTED` (default 5); above that it collapses to a count and routes to `get_inbox`. Clients that split on the separator (pi-channels) can dedupe identical guidance across a batch; clients that do not (Claude Code) render it as-is.
 
-Claude Code hears mail through the muster plugin: install it with `claude plugin marketplace add subaud-tools/muster` and `claude plugin install muster@muster`, or let `muster setup` enable it.
+Claude Code hears mail through the muster plugin, which lives in the [subaud-tools/plugins](https://github.com/subaud-tools/plugins) marketplace: install it with `claude plugin marketplace add subaud-tools/plugins` and `claude plugin install muster@subaud-tools`, or let `muster setup` enable it.
 
-Turn on auto-update for the `muster` marketplace so the plugin stays current: in Claude Code, run `/plugin`, open the **Marketplaces** tab, select `muster` and choose **Enable auto-update**.
+Turn on auto-update for the `subaud-tools` marketplace so the plugin stays current: in Claude Code, run `/plugin`, open the **Marketplaces** tab, select `subaud-tools` and choose **Enable auto-update**.
 
 The plugin's mod runs `muster watch` for the session and starts a turn with each push, in a session started with plain `claude`; keep `muster mcp` registered for the bus tools.
 

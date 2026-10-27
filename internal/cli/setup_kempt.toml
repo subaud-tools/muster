@@ -42,11 +42,13 @@ only = { os = "darwin" }
   merge = { mcpServers = { muster = { command = "muster", args = ["mcp"] } } }
 
   # Claude Code hears mail through the muster plugin: the next `claude`
-  # session installs it from this marketplace, no command to run, and
-  # auto-update keeps it current.
+  # session installs it from the subaud-tools marketplace, no command to run,
+  # and auto-update keeps it current. The old marketplace in the muster repo
+  # and its muster@muster are removed.
   [[packages.muster.json-merge]]
   file = "~/.claude/settings.json"
-  merge = { extraKnownMarketplaces = { muster = { source = { source = "github", repo = "subaud-tools/muster" }, autoUpdate = true } }, enabledPlugins = { "muster@muster" = true } }
+  merge = { extraKnownMarketplaces = { subaud-tools = { source = { source = "github", repo = "subaud-tools/plugins" }, autoUpdate = true } }, enabledPlugins = { "muster@subaud-tools" = true } }
+  remove = ["extraKnownMarketplaces.muster", "enabledPlugins.muster@muster"]
 
   [[packages.muster.json-merge]]
   file = "~/.claude/settings.json"

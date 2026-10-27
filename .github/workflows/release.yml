@@ -52,7 +52,7 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
       - id: rel
-        uses: subaud-tools/tools-actions/release-version@v0.11.0
+        uses: subaud-tools/tools-actions/release-version@v0.13.0
         with:
           mode: version-file
           dispatch-tag: ${{ inputs.tag }}
@@ -76,7 +76,7 @@ jobs:
             -o dist/bootstrap ./cmd/muster
           (cd dist && zip -qj "muster-lambda-arm64-${TAG}.zip" bootstrap && rm bootstrap)
       - if: steps.rel.outputs.skip != 'true'
-        uses: subaud-tools/tools-actions/go-release@v0.11.0
+        uses: subaud-tools/tools-actions/go-release@v0.13.0
         with:
           setup-go: "false"
           binaries: |
