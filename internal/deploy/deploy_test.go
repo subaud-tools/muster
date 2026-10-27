@@ -92,7 +92,7 @@ func TestFetchArtifactFetchesAGatedReleaseThroughSignedLinks(t *testing.T) {
 	var asked []string
 	link = func(_ context.Context, product, path string) (string, error) {
 		asked = append(asked, product+" "+path)
-		return signed + "/muster/" + path + "?sig=x", nil
+		return signed + "/" + path + "?sig=x", nil
 	}
 
 	path, cleanup, err := fetchArtifact("https://unreachable.invalid", "v0.27.4")
@@ -104,8 +104,8 @@ func TestFetchArtifactFetchesAGatedReleaseThroughSignedLinks(t *testing.T) {
 		t.Fatalf("fetched %q, want %q", got, zip)
 	}
 	want := []string{
-		"muster 0.27.4/muster-lambda-arm64-v0.27.4.zip.sha256",
-		"muster 0.27.4/muster-lambda-arm64-v0.27.4.zip",
+		"muster muster/0.27.4/muster-lambda-arm64-v0.27.4.zip.sha256",
+		"muster muster/0.27.4/muster-lambda-arm64-v0.27.4.zip",
 	}
 	if strings.Join(asked, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("asked for links %q, want %q", asked, want)

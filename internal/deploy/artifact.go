@@ -60,7 +60,7 @@ var (
 // published never reach S3. It returns the zip's path and a cleanup func.
 func fetchArtifact(base, tag string) (path string, cleanup func(), err error) {
 	url := ArtifactURL(base, tag)
-	dir := strings.TrimPrefix(tag, "v") + "/"
+	dir := "muster/" + strings.TrimPrefix(tag, "v") + "/"
 	sumPath, sumCleanup, err := fetch(url+".sha256", dir+ArtifactName(tag)+".sha256")
 	if err != nil {
 		return "", nil, err
@@ -99,7 +99,8 @@ func fetchArtifact(base, tag string) (path string, cleanup func(), err error) {
 }
 
 // fetch downloads url, or for a gated muster.tools the signed link to path
-// (relative to /dl/muster/), the way `muster update` fetches.
+// (relative to /dl/, as the access service's POST /links takes it), the way
+// `muster update` fetches.
 func fetch(url, path string) (string, func(), error) {
 	if !gated {
 		return download(url)
