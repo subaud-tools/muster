@@ -40,8 +40,8 @@ Run 'muster help <command>' for details on a command. Docs: https://muster.tools
 
 // NewApp builds muster's command-line app on the family's tools.App: every
 // Registry row, muster's groups and overview, and the built-in help, version,
-// man, commands and update. cmd/muster's main() dispatches through it for
-// every command it does not route itself.
+// man, commands, update, login and logout. cmd/muster's main() dispatches
+// through it for every command it does not route itself.
 func NewApp() *tools.App {
 	app := tools.New(tools.Config{
 		Name:   "muster",
