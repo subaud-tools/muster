@@ -556,7 +556,11 @@ func TestSetupBundleCommand(t *testing.T) {
 	if err := toml.Unmarshal(bundle.Manifest, &doc); err != nil {
 		t.Fatal(err)
 	}
-	pkg := setupPackage(doc)
+	packages := doc["packages"].(map[string]any)
+	pkg, ok := packages["integration"].(map[string]any)
+	if !ok || len(packages) != 1 {
+		t.Fatal("bundle must declare only packages.integration for kempt binding")
+	}
 	if doc["kempt"].(map[string]any)["spec"] != int64(2) || pkg["download"] != nil || strings.Contains(string(bundle.Manifest), "~/.cursor/") {
 		t.Fatal("bundle includes own download/Cursor or lacks schema 2")
 	}

@@ -305,6 +305,7 @@ func setupSource() setupbundle.Source {
 		}
 	}
 	pkg["json-merge"] = shared
+	doc["packages"] = map[string]any{"integration": pkg}
 	data, err := toml.Marshal(doc)
 	if err != nil {
 		panic(err)
