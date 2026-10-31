@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.29.1 — bind the release setup fragment
+
+- Export the release bundle under `packages.integration`, the namespace kempt requires before binding it to the owning download. The canonical direct-setup package remains `muster`; its configuration values are unchanged.
+
 ## 0.29.0 — canonical direct and release-owned setup
 
 - Direct setup, generated contrib hooks and the release bundle derive configuration from one declaration. Exact owned Claude hook aliases reconcile before canonical merge, preserving unrelated nested hooks, matcher distinctions and private configuration.
