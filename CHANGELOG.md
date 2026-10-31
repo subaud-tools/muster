@@ -2,6 +2,12 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.29.0 — canonical direct and release-owned setup
+
+- Direct setup, generated contrib hooks and the release bundle derive configuration from one declaration. Exact owned Claude hook aliases reconcile before canonical merge, preserving unrelated nested hooks, matcher distinctions and private configuration.
+- `muster setup-bundle` builds the matching schema-2 integration archive without configuring the machine. Shared onboarding retains the daemon service, current marketplace/channel and shared configuration; standalone Cursor remains available through direct setup. The bundle requires kempt 0.13.0 and uses tools-common 0.40.0.
+- Publish the setup archive beside the existing Lambda ZIP through tools-actions 0.13.1. Direct setup preserves agent selection, no-hooks, dry-run and force behavior, and does not install or activate the daemon service.
+
 ## 0.28.1 — muster-deploy asks for the right signed link
 
 - Once muster.tools is gated, `muster-deploy` asks the access service for the Lambda zip's signed link at `muster/<version>/<file>`, the path the service takes; 0.28.0 left out the `muster/` and would have been refused. Nothing changes today: muster.tools is still open.

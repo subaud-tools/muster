@@ -1,8 +1,21 @@
 {
-  "version": 1,
   "hooks": {
-    "sessionStart": [{ "command": "muster hook SessionStart cursor" }],
-    "stop": [{ "command": "muster hook Stop cursor", "loop_limit": 3 }],
-    "sessionEnd": [{ "command": "muster hook SessionEnd cursor" }]
-  }
+    "sessionEnd": [
+      {
+        "command": "${HOME}/.local/bin/muster hook SessionEnd cursor"
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "${HOME}/.local/bin/muster hook SessionStart cursor"
+      }
+    ],
+    "stop": [
+      {
+        "command": "${HOME}/.local/bin/muster hook Stop cursor",
+        "loop_limit": 3
+      }
+    ]
+  },
+  "version": 1
 }

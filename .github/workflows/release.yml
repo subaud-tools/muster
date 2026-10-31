@@ -52,7 +52,7 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
       - id: rel
-        uses: subaud-tools/tools-actions/release-version@v0.13.0
+        uses: subaud-tools/tools-actions/release-version@v0.13.1
         with:
           mode: version-file
           dispatch-tag: ${{ inputs.tag }}
@@ -60,6 +60,13 @@ jobs:
         uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
+      - name: Build release setup
+        if: steps.rel.outputs.skip != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.rel.outputs.version }}
+        run: |
+          mkdir -p dist
+          go run ./cmd/muster setup-bundle --version "$RELEASE_VERSION" --out dist/muster_setup.tar.gz
       - name: Build the Lambda zip
         if: steps.rel.outputs.skip != 'true'
         env:
@@ -76,7 +83,7 @@ jobs:
             -o dist/bootstrap ./cmd/muster
           (cd dist && zip -qj "muster-lambda-arm64-${TAG}.zip" bootstrap && rm bootstrap)
       - if: steps.rel.outputs.skip != 'true'
-        uses: subaud-tools/tools-actions/go-release@v0.13.0
+        uses: subaud-tools/tools-actions/go-release@v0.13.1
         with:
           setup-go: "false"
           binaries: |
@@ -87,7 +94,9 @@ jobs:
             -X github.com/subaud-tools/muster/internal/version.commit={commit}
             -X github.com/subaud-tools/muster/internal/version.date={date}
           stamp-check: muster
-          extra-assets: dist/*.zip
+          extra-assets: |
+            dist/*.zip
+            dist/*_setup.tar.gz
           tag: ${{ steps.rel.outputs.tag }}
           version: ${{ steps.rel.outputs.version }}
           commit: ${{ steps.rel.outputs.commit }}

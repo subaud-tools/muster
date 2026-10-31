@@ -4,8 +4,8 @@
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "muster hook SessionStart codex"
+            "command": "${HOME}/.local/bin/muster hook SessionStart codex",
+            "type": "command"
           }
         ]
       }
@@ -14,8 +14,8 @@
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "muster hook Stop codex"
+            "command": "${HOME}/.local/bin/muster hook Stop codex",
+            "type": "command"
           }
         ]
       }
