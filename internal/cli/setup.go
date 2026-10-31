@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	toml "github.com/pelletier/go-toml/v2"
+	"github.com/subaud-tools/tools-common/hookconfig"
+	"github.com/subaud-tools/tools-common/setupbundle"
 )
 
 // setupKemptTOML is the canonical declarative setup — the exact kempt package
@@ -64,7 +66,7 @@ func newSetupFlagsWithVals() (*flag.FlagSet, setupFlagVals) {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	var v setupFlagVals
-	v.print = fs.String("print", "", "print a configuration instead of applying it (only: kempt)")
+	v.print = fs.String("print", "", "print a configuration instead of applying it (kempt|claude-hooks|codex-hooks|cursor-hooks)")
 	v.force = fs.Bool("force", false, "apply directly even when kempt is installed")
 	v.dryRun = fs.Bool("dry-run", false, "compute and print every change but write nothing")
 	v.noHooks = fs.Bool("no-hooks", false, "register the MCP server (and the Claude Code plugin) only; skip session hooks")
@@ -103,8 +105,19 @@ func cmdSetup(args []string, out io.Writer) error {
 
 	// --print kempt: emit the canonical template, touch nothing.
 	if *v.print != "" {
+		if agent, ok := strings.CutSuffix(*v.print, "-hooks"); ok && contains(supportedAgents, agent) {
+			desired := map[string]any{}
+			for _, op := range agentOps("", agent, "${HOME}/.local/bin/muster", false) {
+				if op.desired["hooks"] != nil {
+					deepMerge(desired, op.desired)
+				}
+			}
+			enc := json.NewEncoder(out)
+			enc.SetIndent("", "  ")
+			return enc.Encode(desired)
+		}
 		if *v.print != "kempt" {
-			return fmt.Errorf("unknown --print value %q (only: kempt)", *v.print)
+			return fmt.Errorf("unknown --print value %q (kempt|claude-hooks|codex-hooks|cursor-hooks)", *v.print)
 		}
 		_, err := fmt.Fprint(out, setupKemptTOML)
 		return err
@@ -150,7 +163,6 @@ func applySetup(out io.Writer, home string, v setupFlagVals) error {
 	// that expand ~ get the literal ~/.local/bin/muster; files that do NOT
 	// expand ~ (codex/cursor hooks.json) get the absolute path.
 	mbAbs := resolveMusterBin(home)
-	const mbTilde = "~/.local/bin/muster"
 
 	requested := *v.agents
 	var ops []fileOp
@@ -164,7 +176,7 @@ func applySetup(out io.Writer, home string, v setupFlagVals) error {
 			continue
 		}
 		configured = append(configured, agent)
-		ops = append(ops, agentOps(home, agent, mbAbs, mbTilde, *v.noHooks)...)
+		ops = append(ops, agentOps(home, agent, mbAbs, *v.noHooks)...)
 	}
 
 	if len(configured) == 0 {
@@ -220,102 +232,95 @@ func agentDetected(home, agent string) bool {
 	return false
 }
 
-// agentOps builds the file merge operations for one agent.
-func agentOps(home, agent, mbAbs, mbTilde string, noHooks bool) []fileOp {
-	switch agent {
-	case "claude":
-		// The bus tools stay a bare MCP server; mail reaches the session
-		// through the muster plugin, which replaces the muster-channel server.
-		settings := filepath.Join(home, ".claude", "settings.json")
-		ops := []fileOp{
-			{
-				path:    filepath.Join(home, ".claude.json"),
-				disp:    "~/.claude.json",
-				desc:    "mcpServers.muster, without muster-channel",
-				desired: mustJSON(`{"mcpServers":{"muster":{"type":"stdio","command":"muster","args":["mcp"],"env":{}}}}`),
-				remove:  []string{"mcpServers.muster-channel"},
-			},
-			{
-				path: settings,
-				disp: "~/.claude/settings.json",
-				desc: "the muster@subaud-tools plugin, without muster@muster",
-				desired: mustJSON(`{"extraKnownMarketplaces":{"subaud-tools":{"source":{"source":"github","repo":"subaud-tools/plugins"},"autoUpdate":true}},` +
-					`"enabledPlugins":{"muster@subaud-tools":true}}`),
-				// The plugin moved from muster's own marketplace to subaud-tools/plugins.
-				remove: []string{"extraKnownMarketplaces.muster", "enabledPlugins.muster@muster"},
-			},
-		}
-		if !noHooks {
-			ops = append(ops,
-				fileOp{
-					path:    settings,
-					disp:    "~/.claude/settings.json",
-					desc:    "permissions.allow mcp__muster",
-					desired: mustJSON(`{"permissions":{"allow":["mcp__muster"]}}`),
-				},
-				fileOp{
-					path: settings,
-					disp: "~/.claude/settings.json",
-					desc: "SessionStart/UserPromptSubmit/Stop/SessionEnd hooks",
-					desired: mustJSON(`{"hooks":{` +
-						`"SessionStart":[{"matcher":"startup|resume","hooks":[{"type":"command","command":"` + mbTilde + ` hook SessionStart claude"}]}],` +
-						`"UserPromptSubmit":[{"hooks":[{"type":"command","command":"` + mbTilde + ` hook UserPromptSubmit claude"}]}],` +
-						`"Stop":[{"hooks":[{"type":"command","command":"` + mbTilde + ` hook Stop claude"}]}],` +
-						`"SessionEnd":[{"hooks":[{"type":"command","command":"` + mbTilde + ` hook SessionEnd claude"}]}]}}`),
-				},
-			)
-		}
-		return ops
-	case "codex":
-		ops := []fileOp{{
-			path:    filepath.Join(home, ".codex", "config.toml"),
-			disp:    "~/.codex/config.toml",
-			desc:    "mcp_servers.muster",
-			toml:    true,
-			desired: mustJSON(`{"mcp_servers":{"muster":{"command":"muster","args":["mcp"]}}}`),
-		}}
-		if !noHooks {
-			ops = append(ops, fileOp{
-				path: filepath.Join(home, ".codex", "hooks.json"),
-				disp: "~/.codex/hooks.json",
-				desc: "SessionStart/Stop hooks",
-				desired: mustJSON(`{"hooks":{` +
-					`"SessionStart":[{"hooks":[{"type":"command","command":"` + mbAbs + ` hook SessionStart codex"}]}],` +
-					`"Stop":[{"hooks":[{"type":"command","command":"` + mbAbs + ` hook Stop codex"}]}]}}`),
-			})
-		}
-		return ops
-	case "cursor":
-		ops := []fileOp{{
-			path:    filepath.Join(home, ".cursor", "mcp.json"),
-			disp:    "~/.cursor/mcp.json",
-			desc:    "mcpServers.muster",
-			desired: mustJSON(`{"mcpServers":{"muster":{"command":"muster","args":["mcp"]}}}`),
-		}}
-		if !noHooks {
-			ops = append(ops, fileOp{
-				path: filepath.Join(home, ".cursor", "hooks.json"),
-				disp: "~/.cursor/hooks.json",
-				desc: "sessionStart/stop/sessionEnd hooks",
-				desired: mustJSON(`{"version":1,"hooks":{` +
-					`"sessionStart":[{"command":"` + mbAbs + ` hook SessionStart cursor"}],` +
-					`"stop":[{"command":"` + mbAbs + ` hook Stop cursor","loop_limit":3}],` +
-					`"sessionEnd":[{"command":"` + mbAbs + ` hook SessionEnd cursor"}]}}`),
-			})
-		}
-		return ops
+// setupDeclaration decodes only the configuration operations direct setup supports.
+// Download, service and verification remain exclusively kempt's responsibility.
+func setupDeclaration() map[string]any {
+	var doc map[string]any
+	if err := toml.Unmarshal([]byte(setupKemptTOML), &doc); err != nil {
+		panic(err)
 	}
-	return nil
+	return doc
+}
+
+func setupPackage(doc map[string]any) map[string]any {
+	return doc["packages"].(map[string]any)["muster"].(map[string]any)
+}
+
+type declaredMerge struct {
+	File        string               `json:"file"`
+	Merge       map[string]any       `json:"merge"`
+	Remove      []string             `json:"remove"`
+	RemoveHooks []hookconfig.Removal `json:"remove-hooks"`
+}
+
+// agentOps consumes the declaration, not an imperative copy of its values.
+func agentOps(home, agent, mbAbs string, noHooks bool) []fileOp {
+	pkg := setupPackage(setupDeclaration())
+	var ops []fileOp
+	for _, kind := range []string{"json-merge", "toml-merge"} {
+		data, err := json.Marshal(pkg[kind])
+		if err != nil {
+			panic(err)
+		}
+		var entries []declaredMerge
+		if err := json.Unmarshal(data, &entries); err != nil {
+			panic(err)
+		}
+		for _, entry := range entries {
+			if !strings.HasPrefix(entry.File, "~/."+agent+"/") && (agent != "claude" || entry.File != "~/.claude.json") {
+				continue
+			}
+			if noHooks && (entry.Merge["hooks"] != nil || entry.Merge["permissions"] != nil) {
+				continue
+			}
+			// Codex/Cursor require an absolute executable. Keep the installed-path
+			// fallback of direct setup; Claude deliberately retains its literal ~.
+			encoded, err := json.Marshal(entry.Merge)
+			if err != nil {
+				panic(err)
+			}
+			replacement, err := json.Marshal(mbAbs)
+			if err != nil {
+				panic(err)
+			}
+			desired := mustJSON(strings.ReplaceAll(string(encoded), "${HOME}/.local/bin/muster", string(replacement[1:len(replacement)-1])))
+			ops = append(ops, fileOp{path: filepath.Join(home, strings.TrimPrefix(entry.File, "~/")), disp: entry.File, desc: "declared " + kind, toml: kind == "toml-merge", desired: desired, remove: entry.Remove, removeHooks: entry.RemoveHooks})
+		}
+	}
+	return ops
+}
+
+// setupSource contributes shared onboarding only: its binary is resolved by the
+// owning download, and standalone Cursor support is intentionally not selected.
+func setupSource() setupbundle.Source {
+	doc := setupDeclaration()
+	pkg := setupPackage(doc)
+	delete(pkg, "download")
+	entries, _ := pkg["json-merge"].([]any)
+	var shared []any
+	for _, value := range entries {
+		entry := value.(map[string]any)
+		if !strings.HasPrefix(entry["file"].(string), "~/.cursor/") {
+			shared = append(shared, entry)
+		}
+	}
+	pkg["json-merge"] = shared
+	data, err := toml.Marshal(doc)
+	if err != nil {
+		panic(err)
+	}
+	return setupbundle.Source{Manifest: data}
 }
 
 // fileOp is one deep-merge into one config file.
 type fileOp struct {
-	path    string         // absolute filesystem path
-	disp    string         // display path (~ form) for summaries
-	desc    string         // what this merge adds, for the summary line
-	toml    bool           // true → TOML file, else JSON
-	desired map[string]any // the map to deep-merge in
-	remove  []string       // dotted key paths to delete after the merge
+	path        string         // absolute filesystem path
+	disp        string         // display path (~ form) for summaries
+	desc        string         // what this merge adds, for the summary line
+	toml        bool           // true → TOML file, else JSON
+	desired     map[string]any // the map to deep-merge in
+	removeHooks []hookconfig.Removal
+	remove      []string // dotted key paths to delete after the merge
 }
 
 // apply reads the target file, deep-merges the desired map, and (unless
@@ -343,6 +348,7 @@ func (op fileOp) apply(dryRun bool) (bool, error) {
 		}
 	}
 
+	hookconfig.Remove(current, op.removeHooks)
 	deepMerge(current, op.desired)
 	for _, p := range op.remove {
 		removePath(current, strings.Split(p, "."))
@@ -388,12 +394,17 @@ func reportOp(out io.Writer, op fileOp, changed, dryRun bool) {
 	}
 }
 
-// tmuxLines are the three mailbox lines setup ensures in ~/.tmux.conf, exact
-// text, added only if not already present.
-var tmuxLines = []string{
-	"set -g set-titles on",
-	"set -g set-titles-string '#{?@muster_inbox,📬#{@muster_inbox} ,}#S'",
-	"set -ga status-left '#{?@muster_inbox,#[fg=colour0#,bg=colour6#,bold] 📬#{@muster_inbox} #[default] ,}'",
+// tmuxLines reads the optional mailbox lines from the same declaration.
+func tmuxLines() []string {
+	entries, _ := setupPackage(setupDeclaration())["line-in-file"].([]any)
+	var lines []string
+	for _, value := range entries {
+		entry := value.(map[string]any)
+		if entry["file"] == "~/.tmux.conf" {
+			lines = append(lines, entry["line"].(string))
+		}
+	}
+	return lines
 }
 
 // applyTmux ensures each mailbox line exists in ~/.tmux.conf (exact-line
@@ -410,7 +421,7 @@ func applyTmux(out io.Writer, home string, dryRun bool) error {
 	}
 
 	var missing []string
-	for _, l := range tmuxLines {
+	for _, l := range tmuxLines() {
 		if !existing[l] {
 			missing = append(missing, l)
 		}

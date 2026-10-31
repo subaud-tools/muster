@@ -3,7 +3,10 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/subaud-tools/tools-common/hookconfig"
+	"github.com/subaud-tools/tools-common/setupbundle"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -284,7 +287,7 @@ func TestSetupTmux(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, l := range tmuxLines {
+	for _, l := range tmuxLines() {
 		if !strings.Contains(string(b), l) {
 			t.Errorf("~/.tmux.conf missing line %q", l)
 		}
@@ -292,7 +295,7 @@ func TestSetupTmux(t *testing.T) {
 
 	runSetup(t, "--tmux") // re-run: no duplicates
 	b2, _ := os.ReadFile(path)
-	for _, l := range tmuxLines {
+	for _, l := range tmuxLines() {
 		if n := strings.Count(string(b2), l); n != 1 {
 			t.Errorf("line %q appears %d times, want 1", l, n)
 		}
@@ -475,7 +478,7 @@ func TestSetupMatchesKemptTemplate(t *testing.T) {
 	var setup []string
 	for _, agent := range supportedAgents {
 		// kempt expands ${HOME} where setup writes the absolute binary path.
-		for _, op := range agentOps("/home", agent, "${HOME}/.local/bin/muster", "~/.local/bin/muster", false) {
+		for _, op := range agentOps("/home", agent, "${HOME}/.local/bin/muster", false) {
 			setup = append(setup, entry(op.disp, op.desired, op.remove))
 		}
 	}
@@ -484,5 +487,209 @@ func TestSetupMatchesKemptTemplate(t *testing.T) {
 	sort.Strings(setup)
 	if !reflect.DeepEqual(kempt, setup) {
 		t.Errorf("setup and setup_kempt.toml differ:\nkempt:\n%s\nsetup:\n%s", strings.Join(kempt, "\n"), strings.Join(setup, "\n"))
+	}
+}
+
+func TestSetupConsumesCanonicalSource(t *testing.T) {
+	original := setupKemptTOML
+	t.Cleanup(func() { setupKemptTOML = original })
+	setupKemptTOML = strings.ReplaceAll(original, `repo = "subaud-tools/plugins"`, `repo = "fixture/plugins"`)
+	for _, op := range agentOps(t.TempDir(), "claude", "/fixture/muster", false) {
+		if marketplace, ok := op.desired["extraKnownMarketplaces"]; ok {
+			b, _ := json.Marshal(marketplace)
+			if !strings.Contains(string(b), "fixture/plugins") {
+				t.Fatalf("direct setup ignored canonical source: %s", b)
+			}
+			return
+		}
+	}
+	t.Fatal("missing marketplace operation")
+}
+
+func TestSetupReconcilesLegacyNestedHooks(t *testing.T) {
+	home := setupHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fixture := `{"private":{"account":"keep"},"hooks":{"Stop":[{"extra":"keep","hooks":[{"type":"command","command":"muster hook Stop claude"},{"type":"command","command":"echo sibling"}]},{"hooks":[{"type":"command","command":"~/.local/bin/muster hook Stop claude"}]},{"matcher":"deliberate","hooks":[{"type":"command","command":"muster hook Stop claude"}]}]}}`
+	if err := os.WriteFile(path, []byte(fixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := cmdSetup([]string{"--force", "--agent", "claude"}, &bytes.Buffer{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	doc := readJSON(t, path)
+	groups := doc["hooks"].(map[string]any)["Stop"].([]any)
+	if len(groups) != 3 {
+		t.Fatalf("groups = %#v", groups)
+	}
+	first := groups[0].(map[string]any)
+	if len(first["hooks"].([]any)) != 1 || first["extra"] != "keep" {
+		t.Fatalf("legacy nested hook survived or sibling lost: %#v", first)
+	}
+	if doc["private"].(map[string]any)["account"] != "keep" {
+		t.Fatal("private config lost")
+	}
+}
+
+func TestSetupBundleCommand(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "muster_setup.tar.gz")
+	var out bytes.Buffer
+	if err := Dispatch([]string{"setup-bundle", "--version", "1.2.3", "--out", path}, &out); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := setupbundle.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Tool != "muster" || bundle.Version != "1.2.3" || len(bundle.Files) != 0 {
+		t.Fatalf("unexpected bundle: %#v", bundle)
+	}
+	var doc map[string]any
+	if err := toml.Unmarshal(bundle.Manifest, &doc); err != nil {
+		t.Fatal(err)
+	}
+	pkg := setupPackage(doc)
+	if doc["kempt"].(map[string]any)["spec"] != int64(2) || pkg["download"] != nil || strings.Contains(string(bundle.Manifest), "~/.cursor/") {
+		t.Fatal("bundle includes own download/Cursor or lacks schema 2")
+	}
+	if pkg["service"] == nil || pkg["line-in-file"] == nil || pkg["verify"] == nil || !strings.Contains(string(bundle.Manifest), "subaud-tools/plugins") {
+		t.Fatal("bundle lost shared setup")
+	}
+}
+
+func TestContribHooksFromCanonicalSource(t *testing.T) {
+	for _, agent := range supportedAgents {
+		t.Run(agent, func(t *testing.T) {
+			var out bytes.Buffer
+			if err := cmdSetup([]string{"--print", agent + "-hooks"}, &out); err != nil {
+				t.Fatal(err)
+			}
+			name := agent + "-hooks.json"
+			if agent == "claude" {
+				name = "claude-settings-hooks.json"
+			}
+			data, err := os.ReadFile(filepath.Join("..", "..", "contrib", name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(mustJSON(string(data)), mustJSON(out.String())) {
+				t.Fatalf("regenerate contrib/%s from setup --print %s-hooks", name, agent)
+			}
+		})
+	}
+}
+
+// Opt-in integration with the public kempt release, never the service-bearing
+// bundle: only the canonical JSON/TOML configuration steps enter this fixture.
+func TestSetupMixedKempt(t *testing.T) {
+	bin := os.Getenv("KEMPT_TEST_BIN")
+	if bin == "" {
+		t.Skip("set KEMPT_TEST_BIN to released kempt >= 0.13.0")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", "/usr/bin:/bin")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local/state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	path := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	contrib, err := os.ReadFile("../../contrib/claude-settings-hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.ReplaceAll(string(contrib), "~/.local/bin/muster", "muster")
+	seed := mustJSON(legacy)
+	deepMerge(seed, mustJSON(string(contrib)))
+	deepMerge(seed, mustJSON(`{"private":{"account":"keep"},"hooks":{"Stop":[{"extra":"keep","hooks":[{"type":"command","command":"echo sibling"}]},{"matcher":"deliberate","hooks":[{"type":"command","command":"muster hook Stop claude"}]}]}}`))
+	data, _ := json.Marshal(seed)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pkg := setupPackage(setupDeclaration())
+	fixture := map[string]any{"kempt": map[string]any{"spec": 2}, "packages": map[string]any{"muster": map[string]any{"json-merge": pkg["json-merge"], "toml-merge": pkg["toml-merge"]}}}
+	manifest, err := toml.Marshal(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(home, "config-only.toml")
+	if err := os.WriteFile(manifestPath, manifest, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run := func(args ...string) string {
+		t.Helper()
+		output, err := exec.Command(bin, args...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("kempt %v: %v\n%s", args, err, output)
+		}
+		return string(output)
+	}
+	before := run("doctor", "--json", "--manifest", manifestPath)
+	if !strings.Contains(before, "duplicate owned hook registrations") {
+		t.Fatalf("doctor missed duplicate: %s", before)
+	}
+	stub := filepath.Join(home, ".local/bin/muster")
+	if err := os.MkdirAll(filepath.Dir(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$HOME/invocations\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var previous []byte
+	for i := 0; i < 3; i++ {
+		run("apply", "--yes", "--manifest", manifestPath)
+		if err := cmdSetup([]string{"--force", "--agent", "claude,codex,cursor"}, &bytes.Buffer{}); err != nil {
+			t.Fatal(err)
+		}
+		current, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i > 0 && !bytes.Equal(previous, current) {
+			t.Fatal("mixed repeat drifted")
+		}
+		previous = current
+	}
+	after := run("doctor", "--json", "--manifest", manifestPath)
+	if strings.Contains(after, "duplicate owned hook registrations") {
+		t.Fatalf("duplicate remains: %s", after)
+	}
+	doc := readJSON(t, path)
+	rule := hookconfig.Removal{Event: "Stop", Commands: []string{"muster hook Stop claude", "~/.local/bin/muster hook Stop claude"}}
+	if hookconfig.Count(doc, rule) != 1 {
+		t.Fatal("expected one owned hook")
+	}
+	if doc["private"].(map[string]any)["account"] != "keep" {
+		t.Fatal("private config lost")
+	}
+	// Deliver a Stop payload to only its no-matcher command hooks, as a harness
+	// does. The intended muster executable is a harmless stub, never the bus.
+	for _, value := range doc["hooks"].(map[string]any)["Stop"].([]any) {
+		group := value.(map[string]any)
+		if matcher, _ := group["matcher"].(string); matcher != "" {
+			continue
+		}
+		for _, value := range group["hooks"].([]any) {
+			hook := value.(map[string]any)
+			cmd := exec.Command("/bin/sh", "-c", hook["command"].(string))
+			cmd.Stdin = strings.NewReader(`{"hook_event_name":"Stop"}`)
+			if output, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("event: %v %s", err, output)
+			}
+		}
+	}
+	calls, err := os.ReadFile(filepath.Join(home, "invocations"))
+	if err != nil || string(calls) != "hook Stop claude\n" {
+		t.Fatalf("invocations %q: %v", calls, err)
 	}
 }

@@ -1,17 +1,22 @@
 # muster — kempt package (the canonical declarative setup)
 #
-# Drop this [packages.muster] block into your kempt.toml (https://kempt.tools)
+# Requires kempt >= 0.13.0, with [kempt] spec = 2.
+# Add this package to your kempt.toml (https://kempt.tools)
 # and run `kempt apply`. kempt installs the binary, registers the MCP server
 # with each agent, enables the Claude Code plugin, installs the session hooks,
 # renders the tmux mailbox, and runs the daemon as a background service — all
 # idempotently, no shell scripts.
 #
 # This block is emitted verbatim by `muster setup --print kempt`, and is the
-# exact configuration `muster setup` applies for people who do not use kempt,
-# so the two paths never drift.
+# source of config merges and optional tmux lines for direct `muster setup`.
+# Direct setup never installs the binary or service. The release bundle omits
+# its own download and standalone Cursor writes.
 #
 # macOS-focused (launchd service). Drop the `service` step on Linux or adapt it
 # to systemd --user.
+
+[kempt]
+spec = 2
 
 [packages.muster]
 description = "Cross-terminal agent coordination bus (daemon, MCP + hooks in Claude/Codex/Cursor, tmux mailbox)"
@@ -57,6 +62,12 @@ only = { os = "darwin" }
   [[packages.muster.json-merge]]
   file = "~/.claude/settings.json"
   merge = { hooks = { SessionStart = [ { matcher = "startup|resume", hooks = [ { type = "command", command = "~/.local/bin/muster hook SessionStart claude" } ] } ], UserPromptSubmit = [ { hooks = [ { type = "command", command = "~/.local/bin/muster hook UserPromptSubmit claude" } ] } ], Stop = [ { hooks = [ { type = "command", command = "~/.local/bin/muster hook Stop claude" } ] } ], SessionEnd = [ { hooks = [ { type = "command", command = "~/.local/bin/muster hook SessionEnd claude" } ] } ] } }
+  remove-hooks = [
+    { event = "SessionStart", matcher = "startup|resume", commands = ["muster hook SessionStart claude", "~/.local/bin/muster hook SessionStart claude"] },
+    { event = "UserPromptSubmit", commands = ["muster hook UserPromptSubmit claude", "~/.local/bin/muster hook UserPromptSubmit claude"] },
+    { event = "Stop", commands = ["muster hook Stop claude", "~/.local/bin/muster hook Stop claude"] },
+    { event = "SessionEnd", commands = ["muster hook SessionEnd claude", "~/.local/bin/muster hook SessionEnd claude"] },
+  ]
 
   [[packages.muster.json-merge]]
   file = "~/.codex/hooks.json"
