@@ -16,7 +16,7 @@ var wantCommandNames = []string{
 	"send", "nudge", "reply", "standing",
 	"agents", "status", "inbox", "tasks", "thread", "events", "tail", "station",
 	"register", "become", "deregister", "label", "whereami", "device", "gc",
-	"serve", "mcp", "channel", "watch", "lambda", "hook", "setup", "debug",
+	"serve", "mcp", "channel", "watch", "lambda", "hook", "setup", "setup-bundle", "debug",
 	// tools.App built-ins
 	"help", "version", "man", "commands", "update", "login", "logout",
 }

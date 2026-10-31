@@ -62,7 +62,7 @@ func TestManPage(t *testing.T) {
 		}
 	}
 	for _, c := range Registry {
-		if !strings.Contains(out, ".B "+c.Name) {
+		if !strings.Contains(out, ".B "+strings.ReplaceAll(c.Name, "-", `\-`)) {
 			t.Errorf("man has no entry for %q", c.Name)
 		}
 	}

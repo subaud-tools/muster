@@ -1,32 +1,42 @@
 {
   "hooks": {
-    "SessionStart": [
+    "SessionEnd": [
       {
-        "matcher": "startup|resume",
         "hooks": [
           {
-            "type": "command",
-            "command": "muster hook SessionStart claude"
+            "command": "~/.local/bin/muster hook SessionEnd claude",
+            "type": "command"
           }
         ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "~/.local/bin/muster hook SessionStart claude",
+            "type": "command"
+          }
+        ],
+        "matcher": "startup|resume"
       }
     ],
     "Stop": [
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "muster hook Stop claude"
+            "command": "~/.local/bin/muster hook Stop claude",
+            "type": "command"
           }
         ]
       }
     ],
-    "SessionEnd": [
+    "UserPromptSubmit": [
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "muster hook SessionEnd claude"
+            "command": "~/.local/bin/muster hook UserPromptSubmit claude",
+            "type": "command"
           }
         ]
       }

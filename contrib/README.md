@@ -22,7 +22,27 @@ session hooks at `muster hook <event> <model>`:
   to drain its inbox and reply — autonomously.
 - **SessionEnd** (Claude Code only; Codex has no such event) → deregisters.
 
-Setup:
+Prefer `muster setup` (or `muster setup --force` when kempt is installed)
+for migration: it reconciles the known bare and `~/.local/bin/muster` Claude
+hook spellings by exact event and matcher, preserving unrelated hooks. Simply
+merging JSON does not remove legacy duplicates.
+
+These hook files are generated from `internal/cli/setup_kempt.toml` and pinned
+by `TestContribHooksFromCanonicalSource`. Regenerate from the repository root:
+
+```sh
+go run ./cmd/muster setup --print claude-hooks > contrib/claude-settings-hooks.json
+go run ./cmd/muster setup --print codex-hooks > contrib/codex-hooks.json
+go run ./cmd/muster setup --print cursor-hooks > contrib/cursor-hooks.json
+```
+
+The release setup bundle uses kempt >= **0.13.0** (`[kempt] spec = 2`) and
+retains the daemon service, marketplace and shared configuration. It excludes
+the owning binary download and Cursor; Cursor remains available through direct
+setup. Publication uses tools-actions >= **0.13.1**. Direct setup does not
+install or activate the daemon service.
+
+Manual setup:
 
 - **Claude Code:** merge [`claude-settings-hooks.json`](claude-settings-hooks.json)
   into `~/.claude/settings.json`.
@@ -36,9 +56,10 @@ Setup:
   also declines continuations after Cursor reports a non-zero `loop_count` or
   an `aborted`/`error` status.
 
-If `muster` isn't on the PATH your harness gives hook commands (e.g. it lives in
-`~/go/bin`), use the absolute binary path in the `command` strings — Codex and
-Cursor in particular do not expand `~`.
+For manual Codex/Cursor copies, replace `${HOME}` with your absolute home
+path before installing the generated JSON. Direct setup resolves it for you;
+kempt expands it during application. Claude keeps the literal
+`~/.local/bin/muster` command.
 
 **Push delivery (optional, additive):** for Claude Code, run `claude plugin marketplace add subaud-tools/plugins` and `claude plugin install muster@subaud-tools` (or let `muster setup` enable the plugin), and keep `muster mcp` registered for the bus tools.
 

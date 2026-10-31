@@ -7,8 +7,10 @@ import (
 	"os"
 
 	tools "github.com/subaud-tools/tools-common"
+	"github.com/subaud-tools/tools-common/setupbundle"
 
 	"github.com/subaud-tools/muster/internal/station"
+	"github.com/subaud-tools/muster/internal/version"
 )
 
 // The four command groups, in the order the operator sees them everywhere
@@ -50,7 +52,10 @@ var groups = []tools.Group{
 var Registry []tools.Command
 
 func init() {
+	bundleCommand := setupbundle.BundleCommand("muster", version.Version(), setupSource())
+	bundleCommand.Group = GroupPlumbing
 	Registry = []tools.Command{
+		bundleCommand,
 		{
 			Name:     "send",
 			Aliases:  []string{"send_message"},
@@ -474,7 +479,9 @@ the mailbox lines to ~/.tmux.conf.
 
 When kempt is installed, setup defers to it: it prints the [packages.muster]
 block to add to your kempt.toml rather than editing files, unless --force is
-given. --print kempt emits that same canonical block and exits.`,
+given. --print kempt emits that same canonical block and exits. It requires
+kempt >= 0.13.0 (schema 2). --print claude-hooks, codex-hooks or cursor-hooks
+emits the generated contrib hooks without writing files.`,
 			Group:    GroupPlumbing,
 			NewFlags: newSetupFlags,
 			Run:      adapt(cmdSetup),
