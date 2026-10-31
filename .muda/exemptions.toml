@@ -8,3 +8,12 @@ schema = 1
   agreed-by = "Court Schuett (repo owner)"
   date = "2026-10-02"
   review-by = "2026-11-01"
+
+[[exemptions]]
+  id = "E-002"
+  waste = "W6"
+  location = "workflow:.github/workflows/ci.yml"
+  reason = "Push runs repeat trees their PRs passed (12 of 13 pushes, 40% of job-seconds, n=30), but they create the dev and main setup-go cache entries PR runs restore, nothing waits on them, and the repo is public, so minutes are not billed."
+  agreed-by = "Court Schuett (repo owner)"
+  date = "2026-10-31"
+  review-by = "2027-01-31"
