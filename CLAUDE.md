@@ -167,18 +167,11 @@ Every distinct line of work — a feature, a fix, an agent's task — runs in it
 git worktree on its own branch. **Never branch-switch this clone**; it may hold
 uncommitted work.
 
-Worktrees live at **`<repo-root>/.worktrees/<branch>`** — inside the repo, resolved
-from the repo root, never as a sibling directory:
-
-```bash
-ROOT=$(git rev-parse --show-toplevel)
-git -C "$ROOT" worktree add "$ROOT/.worktrees/<branch>" -b <branch> origin/dev
-```
+Follow the global `AGENTS.md` shared worktree placement rule and the canonical workspace root identified by the workspace's `CLAUDE.md`. Create branches from `origin/dev`.
 
 - **Never a sibling** (`../<repo>-<topic>`, `<repo>-worktrees/`). Siblings escape the
   repo, clutter the parent directory, and strand themselves when the repo moves.
 - **Never `/tmp`.** On macOS it symlinks to `/private/tmp`; worktrees under it break
   vite-node/vitest module resolution *before a single test runs*.
-- Remove the worktree and its branch once merged:
-  `git -C "$ROOT" worktree remove "$ROOT/.worktrees/<branch>"`.
+- Follow the global `AGENTS.md` shared worktree cleanup rules.
 - `.worktrees/` and `.claude/worktrees/` are gitignored.
