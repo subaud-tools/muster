@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## Unreleased
+
+- The release setup bundle no longer declares the optional tmux mailbox lines, so a kempt manifest that manages `~/.tmux.conf` keeps its own terminal preferences. `muster setup --tmux` and the canonical declaration still add them on request.
+
 ## 0.29.1 — bind the release setup fragment
 
 - Export the release bundle under `packages.integration`, the namespace kempt requires before binding it to the owning download. The canonical direct-setup package remains `muster`; its configuration values are unchanged.
