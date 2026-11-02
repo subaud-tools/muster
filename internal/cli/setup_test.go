@@ -564,8 +564,30 @@ func TestSetupBundleCommand(t *testing.T) {
 	if doc["kempt"].(map[string]any)["spec"] != int64(2) || pkg["download"] != nil || strings.Contains(string(bundle.Manifest), "~/.cursor/") {
 		t.Fatal("bundle includes own download/Cursor or lacks schema 2")
 	}
-	if pkg["service"] == nil || pkg["line-in-file"] == nil || pkg["verify"] == nil || !strings.Contains(string(bundle.Manifest), "subaud-tools/plugins") {
+	if pkg["service"] == nil || pkg["verify"] == nil || !strings.Contains(string(bundle.Manifest), "subaud-tools/plugins") {
 		t.Fatal("bundle lost shared setup")
+	}
+}
+
+// The release fragment must not own the optional mailbox lines: a dotfiles
+// manifest that manages ~/.tmux.conf would otherwise have it overwritten.
+func TestSetupBundleOmitsOptionalTmuxPreferences(t *testing.T) {
+	var doc map[string]any
+	if err := toml.Unmarshal(setupSource().Manifest, &doc); err != nil {
+		t.Fatal(err)
+	}
+	pkg := doc["packages"].(map[string]any)["integration"].(map[string]any)
+	entries, _ := pkg["line-in-file"].([]any)
+	for _, value := range entries {
+		if value.(map[string]any)["file"] == "~/.tmux.conf" {
+			t.Fatalf("bundle declares optional tmux line: %#v", value)
+		}
+	}
+	if pkg["service"] == nil || pkg["json-merge"] == nil || pkg["toml-merge"] == nil || pkg["verify"] == nil {
+		t.Fatal("bundle lost hooks, service or agent registrations")
+	}
+	if len(tmuxLines()) != 3 {
+		t.Fatalf("canonical tmux lines = %d, want 3", len(tmuxLines()))
 	}
 }
 
