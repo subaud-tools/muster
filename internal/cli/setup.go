@@ -291,7 +291,9 @@ func agentOps(home, agent, mbAbs string, noHooks bool) []fileOp {
 }
 
 // setupSource contributes shared onboarding only: its binary is resolved by the
-// owning download, and standalone Cursor support is intentionally not selected.
+// owning download, standalone Cursor support is intentionally not selected, and
+// the optional tmux mailbox lines stay with `setup --tmux` so a dotfiles-managed
+// ~/.tmux.conf is not overwritten.
 func setupSource() setupbundle.Source {
 	doc := setupDeclaration()
 	pkg := setupPackage(doc)
@@ -305,6 +307,18 @@ func setupSource() setupbundle.Source {
 		}
 	}
 	pkg["json-merge"] = shared
+	lines, _ := pkg["line-in-file"].([]any)
+	var kept []any
+	for _, value := range lines {
+		if value.(map[string]any)["file"] != "~/.tmux.conf" {
+			kept = append(kept, value)
+		}
+	}
+	if kept == nil {
+		delete(pkg, "line-in-file")
+	} else {
+		pkg["line-in-file"] = kept
+	}
 	doc["packages"] = map[string]any{"integration": pkg}
 	data, err := toml.Marshal(doc)
 	if err != nil {
