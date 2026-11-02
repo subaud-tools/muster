@@ -2,7 +2,7 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
-## Unreleased
+## 0.29.2 — keep terminal preferences out of the release setup
 
 - The release setup bundle no longer declares the optional tmux mailbox lines, so a kempt manifest that manages `~/.tmux.conf` keeps its own terminal preferences. `muster setup --tmux` and the canonical declaration still add them on request.
 
