@@ -79,7 +79,7 @@ schema = 1
   location = "workflow:.github/workflows/ci.yml/job:gate/step:Run schuettc%2Ftools-actions%2Fgo-ci@v0.10.1"
   recipe = "R5"
   basis = "measured"
-  estimate = "Duplication measured; saving suspected: ~50s off the critical path if the 4 targets were split across the two legs (half of a cold ~105s cross-build; per-target times are not in the logs, so unproven); a few seconds once the ubuntu cache is warm (macOS warm cross-build 11s). Effort: small, but the fix belongs upstream in schuettc/tools-actions go-ci."
+  estimate = "Duplication measured; saving suspected: ~50s off the critical path if the 4 targets were split across the two legs (half of a cold ~105s cross-build; per-target times are not in the logs, so unproven); a few seconds once the ubuntu cache is warm (macOS warm cross-build 11s). Effort: small, but the fix belongs upstream in schuettc/tools-actions go-ci. REFRESHED 2026-10-31, n=30 runs: subtracting the macOS cross-build from each critical path saves a mean of 30.3s, median 41.5s when macOS is cold and 8.5s when warm; arithmetic from logs, not a measured run. Deferred by the repo owner (Later) on 2026-10-31."
   risk = "The family-standard ci.yml must be identical across repos except branch and OS lists, so per-repo, per-leg target lists are forbidden; an upstream go-ci change affects every family repo. Both gate legs must stay required checks."
   status = "open"
   pr = ""
@@ -119,17 +119,29 @@ schema = 1
     line = 25
     note = "go-ci@v0.10.1 called with default targets in a matrix over ubuntu-26.04 and macos-26"
 
+  [[findings.evidence]]
+    kind = "run"
+    url = "https://github.com/subaud-tools/muster/actions/runs/41173378639"
+    run_id = 41173378639
+    note = "Same run and tree: gate (macos-26) cross-build 109s, gate (ubuntu-26.04) 4s; both legs run the group."
+
+  [[findings.evidence]]
+    kind = "run"
+    url = "https://github.com/subaud-tools/muster/actions/runs/41173134050"
+    run_id = 41173134050
+    note = "Latest 30 ci.yml runs to this window (2026-10-24 to 10-31): cross-build cold above 50s. Ubuntu cold 12/30 median 136.5s, warm median 4s; macOS cold 18/30 median 95.5s, warm median 8.5s."
+
 [[findings]]
   id = "F-003"
   waste = "W6"
   location = "workflow:.github/workflows/ci.yml"
   recipe = "R10"
-  basis = "suspected"
-  estimate = "No number: no basis until tree identity is proven. Effort: unknown (would need proof-based reuse, not skipping)."
+  basis = "measured"
+  estimate = "Duplication measured, 2026-10-31, n=30 runs: 12 of 13 push runs repeat a tree and target branch their PR passed, 40% of job-seconds. No saving claimed: nothing waits on push runs, the repo is public, and they seed the cache."
   risk = "ci.yml jobs are required checks on main; any reuse must be proof-scoped to tree, branch and workflow and must run full checks on any miss; never skip or path-filter required checks."
-  status = "open"
+  status = "exempt"
   pr = ""
-  exemption-id = ""
+  exemption-id = "E-002"
 
   [[findings.evidence]]
     kind = "run"
@@ -155,3 +167,21 @@ schema = 1
     path = ".github/workflows/ci.yml"
     line = 4
     note = "triggers on both push and pull_request for dev and main. What would settle it: compare the PR merge-ref tree tested with the pushed commit's tree for the same change"
+
+  [[findings.evidence]]
+    kind = "run"
+    url = "https://github.com/subaud-tools/muster/actions/runs/41173378639"
+    run_id = 41173378639
+    note = "One change, four full runs on tree caaf191078: 41172759194 (PR into dev), 41172898922 (push dev), 41173134050 (PR into main), 41173378639 (push main). Checkout SHAs from job logs, trees from the git API."
+
+  [[findings.evidence]]
+    kind = "run"
+    url = "https://github.com/subaud-tools/muster/actions/runs/41172898922"
+    run_id = 41172898922
+    note = "Latest 30 ci.yml runs: 13 distinct trees; 12 of 13 pushes matched an earlier PR run on the same tree and target branch; 6247 of 15588 job-seconds."
+
+  [[findings.evidence]]
+    kind = "run"
+    url = "https://github.com/subaud-tools/muster/actions/runs/41171706653"
+    run_id = 41171706653
+    note = "Actions cache list: refs/heads/main setup-go entries created 2026-10-31T05:17 inside this push run, so push runs seed the entries PR runs restore."
