@@ -85,7 +85,7 @@ func NameConfigured() string {
 // SanitizeName reduces s to the character set a device name may use:
 // lowercase letters, digits, and single dashes, trimmed at both ends and
 // capped at maxNameLen. It is deliberately lossy rather than validating,
-// because the inputs it has to survive are hostnames — "Court's MacBook
+// because the inputs it has to survive are hostnames — "Alex's MacBook
 // Pro.local" has to become something usable, not an error.
 //
 // The character set is not cosmetic. A device name is a PREFIX on derived
