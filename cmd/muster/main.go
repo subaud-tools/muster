@@ -298,7 +298,7 @@ func runServe(port int) int {
 //
 // A waiting serve (one a client did not start, such as the launchd job older
 // releases installed) must not exit while another daemon holds the
-// lock: launchd restarts a clean exit, which spun 103,600 times on Court's Mac
+// lock: launchd restarts a clean exit, which spun 103,600 times on the user's Mac
 // while a client-spawned daemon owned the socket. Waiting instead lets it take
 // over the moment that daemon exits.
 func acquireServeLock(wait bool, sig <-chan os.Signal, replaced <-chan struct{}) (*os.File, error) {

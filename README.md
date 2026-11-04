@@ -472,7 +472,7 @@ with the same repos checked out can't silently claim the same alias even if
 you skip this step. Naming each device explicitly is still worth doing
 before you join the bus, because it's not retroactive: it makes the roster
 legible ("message the ci-cd session on my **work laptop**" beats
-"message the courts-macbook-pro-2-ci-cd session") instead of just collision-safe:
+"message the alexs-macbook-pro-2-ci-cd session") instead of just collision-safe:
 
 ```sh
 muster device work-laptop
