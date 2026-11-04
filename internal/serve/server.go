@@ -130,9 +130,12 @@ func call(d Dispatcher, op string, out any) error {
 }
 
 // watch emits an "agents" event whenever the rows change, so an open page
-// reloads them; the first read only records.
+// reloads them. It reads only while a page is open: on the remote backend
+// each read scans every agent ever registered. The first read after none
+// was open emits too, since the rows may have changed meanwhile.
 func watch(ctx context.Context, d Dispatcher, events *pageserve.Events, every time.Duration) {
-	last, _ := Agents(d)
+	var last []Agent
+	fresh := false
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
@@ -141,11 +144,15 @@ func watch(ctx context.Context, d Dispatcher, events *pageserve.Events, every ti
 			return
 		case <-t.C:
 		}
-		now, err := Agents(d)
-		if err != nil || reflect.DeepEqual(now, last) {
+		if events.Streams() == 0 {
+			fresh = false
 			continue
 		}
-		last = now
+		now, err := Agents(d)
+		if err != nil || (fresh && reflect.DeepEqual(now, last)) {
+			continue
+		}
+		last, fresh = now, true
 		events.Emit("agents", nil)
 	}
 }

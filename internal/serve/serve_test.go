@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -105,5 +106,28 @@ func TestAgentsListsARegisteredAgentWithItsUnread(t *testing.T) {
 	_ = index.Body.Close()
 	if index.StatusCode != http.StatusOK {
 		t.Fatalf("GET /: %d", index.StatusCode)
+	}
+}
+
+// countingDispatcher counts the ops it is asked, answering each with no rows.
+type countingDispatcher struct{ n atomic.Int64 }
+
+func (c *countingDispatcher) Dispatch(proto.Request) proto.Response {
+	c.n.Add(1)
+	return proto.Response{OK: true, Data: map[string]any{}}
+}
+
+// With no page open, the rows are never read: on the remote backend each read
+// is a scan of every agent ever registered.
+func TestWatchReadsNothingWithNoPageOpen(t *testing.T) {
+	d := &countingDispatcher{}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { watch(ctx, d, pageserve.NewEvents(), time.Millisecond); close(done) }()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-done
+	if n := d.n.Load(); n != 0 {
+		t.Fatalf("read the bus %d times with no page open", n)
 	}
 }
