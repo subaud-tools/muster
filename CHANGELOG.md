@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.29.3 — tools-common 0.63.0
+
+- Build on tools-common 0.63.0 (from 0.40.0). The channel's MCP server now knows the activity report pi sends each turn (`{"event":"activity","working":...}`); muster's channel takes no reports, so it drops it as before. No behaviour change.
+
 ## 0.29.2 — keep terminal preferences out of the release setup
 
 - The release setup bundle no longer declares the optional tmux mailbox lines, so a kempt manifest that manages `~/.tmux.conf` keeps its own terminal preferences. `muster setup --tmux` and the canonical declaration still add them on request.
