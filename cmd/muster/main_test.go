@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +19,10 @@ import (
 	"github.com/subaud-tools/muster/internal/daemon"
 	"github.com/subaud-tools/muster/internal/mustertest"
 	"github.com/subaud-tools/muster/internal/paths"
+	"github.com/subaud-tools/muster/internal/proto"
 	"github.com/subaud-tools/muster/internal/store"
+	"github.com/subaud-tools/tools-common/localweb"
+	"github.com/subaud-tools/tools-common/pageserve"
 )
 
 // TestMain builds the shared binary lazily (see builtBinary) and removes its
@@ -447,5 +451,124 @@ func TestDebugMissingOpStillExitsNonzero(t *testing.T) {
 	}
 	if !strings.Contains(errOut, "usage: muster debug") {
 		t.Errorf("stderr = %q, want the debug usage message", errOut)
+	}
+}
+
+// servePage starts `muster serve` (with args) under a short MUSTER_HOME and
+// waits for the page's entry. The test process shares MUSTER_HOME, so
+// pageserve.LiveFor("muster") finds the same entry.
+func servePage(t *testing.T, args ...string) (home string, e pageserve.Entry, exited <-chan struct{}) {
+	t.Helper()
+	home, cleanup, err := mustertest.ShortHome()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	t.Setenv("MUSTER_HOME", home)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "xdg-state"))
+	cmd := exec.Command(builtBinary(t), append([]string{"serve"}, args...)...)
+	cmd.Env = append(os.Environ(), "MUSTER_NO_AUTOSPAWN=1")
+	var errBuf syncBuffer
+	cmd.Stderr = &errBuf
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	t.Cleanup(func() {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		<-done
+	})
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if e, err = pageserve.LiveFor("muster").Running(); err == nil {
+			return home, e, done
+		}
+		select {
+		case <-done:
+			t.Fatalf("serve exited before writing its entry: %s", errBuf.String())
+		case <-time.After(20 * time.Millisecond):
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("serve wrote no entry: %s", errBuf.String())
+		}
+	}
+}
+
+// syncBuffer is a bytes.Buffer safe to read while a process writes it.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
+}
+
+// waitExit fails the test unless serve exits within a few seconds.
+func waitExit(t *testing.T, exited <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-exited:
+	case <-time.After(10 * time.Second):
+		t.Fatal("serve did not exit")
+	}
+}
+
+// TestServeAdvertisesItsPageWhileTheSocketAnswers: serve writes the page's
+// entry at StateDir(muster)/live/serve.json beside the socket it serves.
+func TestServeAdvertisesItsPageWhileTheSocketAnswers(t *testing.T) {
+	home, e, _ := servePage(t)
+	if _, err := os.Stat(filepath.Join(home, "state", "live", "serve.json")); err != nil {
+		t.Fatalf("no entry at MUSTER_HOME/state/live/serve.json: %v", err)
+	}
+	if e.Base == "" || e.Token == "" {
+		t.Fatalf("entry %+v has no address or token", e)
+	}
+	resp, err := client.Call(paths.SocketPath(), proto.Request{Op: "status"})
+	if err != nil || !resp.OK {
+		t.Fatalf("socket did not answer status: %+v %v", resp, err)
+	}
+}
+
+// TestStopEndsServeAndCleansUp: POST /api/stop ends the whole serve, not just
+// its page, and both the entry and the socket go with it.
+func TestStopEndsServeAndCleansUp(t *testing.T) {
+	_, e, exited := servePage(t)
+	req, _ := http.NewRequest(http.MethodPost, e.Base+"/api/stop", nil)
+	req.Header.Set(localweb.TokenHeader, e.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	waitExit(t, exited)
+	if _, err := pageserve.LiveFor("muster").Running(); !errors.Is(err, pageserve.ErrNotRunning) {
+		t.Fatalf("entry left after stop: %v", err)
+	}
+	if _, err := os.Stat(paths.SocketPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("socket left after stop: %v", err)
+	}
+}
+
+// TestServeStopFlagStopsARunningServe: `muster serve --stop` is the family's
+// way to stop a tool's serve.
+func TestServeStopFlagStopsARunningServe(t *testing.T) {
+	_, _, exited := servePage(t)
+	out, errOut, code := runEnv(t, nil, "serve", "--stop")
+	if code != 0 {
+		t.Fatalf("serve --stop: exit %d: %s%s", code, out, errOut)
+	}
+	waitExit(t, exited)
+	if _, err := pageserve.LiveFor("muster").Running(); !errors.Is(err, pageserve.ErrNotRunning) {
+		t.Fatalf("entry left after serve --stop: %v", err)
 	}
 }
