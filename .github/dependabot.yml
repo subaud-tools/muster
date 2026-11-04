@@ -7,7 +7,14 @@ updates:
     directory: /
     target-branch: dev
     schedule:
-      interval: weekly
+      interval: daily
+    # Dependabot holds a new release for 3 days by default (cooldown days
+    # must be 1-90, so 0 is not allowed); tools-common is ours and ships
+    # several releases a day, so exclude it and take each release at once.
+    cooldown:
+      default-days: 3
+      exclude:
+        - github.com/subaud-tools/tools-common*
     allow:
       - dependency-name: github.com/subaud-tools/tools-common*
     commit-message:
