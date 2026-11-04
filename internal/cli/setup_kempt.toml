@@ -3,17 +3,15 @@
 # Requires kempt >= 0.13.0, with [kempt] spec = 2.
 # Add this package to your kempt.toml (https://kempt.tools)
 # and run `kempt apply`. kempt installs the binary, registers the MCP server
-# with each agent, enables the Claude Code plugin, installs the session hooks,
-# renders the tmux mailbox, and runs the daemon as a background service — all
-# idempotently, no shell scripts.
+# with each agent, enables the Claude Code plugin, installs the session hooks
+# and renders the tmux mailbox — all idempotently, no shell scripts. No
+# background service: any muster command starts `muster serve` when its
+# socket is dead, and proj starts it with a session.
 #
 # This block is emitted verbatim by `muster setup --print kempt`, and is the
 # source of config merges and optional tmux lines for direct `muster setup`.
-# Direct setup never installs the binary or service. The release bundle omits
-# its own download and standalone Cursor writes.
-#
-# macOS-focused (launchd service). Drop the `service` step on Linux or adapt it
-# to systemd --user.
+# Direct setup never installs the binary. The release bundle omits its own
+# download and standalone Cursor writes.
 
 [kempt]
 spec = 2
@@ -26,12 +24,6 @@ only = { os = "darwin" }
   site = "muster.tools"
   tool = "muster"
   bin = "muster"
-
-  [[packages.muster.service]]
-  label = "tools.muster.serve"
-  program = ["/bin/zsh", "-lc", "exec \"$HOME/.local/bin/muster\" serve"]
-  stdout = "~/.local/share/muster/serve.log"
-  stderr = "~/.local/share/muster/serve.log"
 
   [[packages.muster.json-merge]]
   file = "~/.claude.json"

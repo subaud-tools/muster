@@ -296,10 +296,11 @@ func runServe(port int) int {
 // (wait false) whose lock is held, or a waiting serve stopped by a signal or by
 // an upgrade of its binary.
 //
-// A waiting serve (the launchd job) must not exit while another daemon holds
-// the lock: launchd restarts a clean exit, which spun 103,600 times on Court's
-// Mac while a client-spawned daemon owned the socket. Waiting instead lets it
-// take over the moment that daemon exits.
+// A waiting serve (one a client did not start, such as the launchd job older
+// releases installed) must not exit while another daemon holds the
+// lock: launchd restarts a clean exit, which spun 103,600 times on Court's Mac
+// while a client-spawned daemon owned the socket. Waiting instead lets it take
+// over the moment that daemon exits.
 func acquireServeLock(wait bool, sig <-chan os.Signal, replaced <-chan struct{}) (*os.File, error) {
 	f, err := os.OpenFile(filepath.Join(paths.Home(), "serve.lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
