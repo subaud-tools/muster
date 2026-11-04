@@ -15,7 +15,7 @@ import (
 
 // AutospawnEnv marks a `muster serve` that a client started because the socket
 // did not answer. Such a daemon exits when another one already holds the lock;
-// a serve started any other way (the launchd job) waits for the lock instead,
+// a serve started any other way (by hand, or proj's serve --foreground) waits for the lock instead,
 // so a supervisor that restarts clean exits never spins.
 const AutospawnEnv = "MUSTER_AUTOSPAWNED"
 

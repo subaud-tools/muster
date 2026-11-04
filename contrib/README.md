@@ -32,7 +32,7 @@ go run ./cmd/muster setup --print codex-hooks > contrib/codex-hooks.json
 go run ./cmd/muster setup --print cursor-hooks > contrib/cursor-hooks.json
 ```
 
-The release setup bundle uses kempt >= **0.13.0** (`[kempt] spec = 2`) and retains the daemon service, marketplace and shared configuration. It excludes the owning binary download and Cursor; Cursor remains available through direct setup. Publication uses tools-actions >= **0.13.1**. Direct setup does not install or activate the daemon service.
+The release setup bundle uses kempt >= **0.13.0** (`[kempt] spec = 2`) and carries the marketplace and shared configuration. It installs no daemon service: muster commands start `muster serve` when its socket is dead. It excludes the owning binary download and Cursor; Cursor remains available through direct setup. Publication uses tools-actions >= **0.13.1**.
 
 Manual setup:
 

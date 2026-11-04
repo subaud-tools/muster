@@ -375,12 +375,21 @@ irreversible, off by default.`,
 		},
 		{
 			Name:     "serve",
-			Synopsis: "serve",
-			Summary:  "Run the daemon (lazy unix-socket API server).",
+			Synopsis: "serve [--foreground] [--no-open] [--port N] [--stop]",
+			Summary:  "Run the daemon (lazy unix-socket API server) and its page.",
 			Help: `The daemon speaks newline-delimited JSON over a unix socket
 (internal/proto) and is the one process every other muster command and the
-MCP server talk to. Logs one line to stderr on startup, then blocks until
-SIGINT/SIGTERM.`,
+MCP server talk to. Any muster command starts it when the socket is dead.
+
+Beside the socket it serves a page on 127.0.0.1 (the family's pageserve):
+the agents on the bus with their unread and action-required counts, found
+through ~/.local/state/muster/live/serve.json. It runs until SIGINT/SIGTERM,
+a replaced binary, or the page's POST /api/stop.
+
+--stop stops the running serve. --port picks the page's port (default: the
+last one used, else a free one). serve always runs in this process and never
+opens a browser; --foreground and --no-open are accepted for the family's
+shared serve flags.`,
 			Group: GroupPlumbing,
 		},
 		{
