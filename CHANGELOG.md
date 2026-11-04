@@ -2,6 +2,10 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.30.1 — tools-common 0.66.0
+
+- Build on tools-common 0.66.0 (from 0.64.0): the channel's MCP server ignores a report event it doesn't know without a log line, so a newer pi can add one without every older tool complaining. muster's channel takes no reports; no behaviour change.
+
 ## 0.30.0 — a page beside the socket, no launchd
 
 - `muster serve` runs the family's page server (tools-common pageserve 0.64.0) beside its socket: it writes `~/.local/state/muster/live/serve.json`, and its page lists every agent with its project, activity, last seen and unread and action-required counts. It takes the shared serve flags (`--foreground`, `--no-open`, `--port`, `--stop`); the socket and every client are unchanged.
