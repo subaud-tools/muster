@@ -2,6 +2,11 @@
 
 Newest first. Releases before 0.23.0 are noted only where the change needed explaining.
 
+## 0.30.0 — a page beside the socket, no launchd
+
+- `muster serve` runs the family's page server (tools-common pageserve 0.64.0) beside its socket: it writes `~/.local/state/muster/live/serve.json`, and its page lists every agent with its project, activity, last seen and unread and action-required counts. It takes the shared serve flags (`--foreground`, `--no-open`, `--port`, `--stop`); the socket and every client are unchanged.
+- No launchd service: the release setup bundle no longer declares `tools.muster.serve`. `muster serve` starts when a client finds the socket down, or from proj. kempt does not remove a service a manifest stops declaring, so boot out an installed one by hand: `launchctl bootout gui/$(id -u)/tools.muster.serve` and delete `~/Library/LaunchAgents/tools.muster.serve.plist`.
+
 ## 0.29.3 — tools-common 0.63.0
 
 - Build on tools-common 0.63.0 (from 0.40.0). The channel's MCP server now knows the activity report pi sends each turn (`{"event":"activity","working":...}`); muster's channel takes no reports, so it drops it as before. No behaviour change.

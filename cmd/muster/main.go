@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -21,8 +22,11 @@ import (
 	"github.com/subaud-tools/muster/internal/paths"
 	"github.com/subaud-tools/muster/internal/proto"
 	"github.com/subaud-tools/muster/internal/remote"
+	"github.com/subaud-tools/muster/internal/serve"
 	"github.com/subaud-tools/muster/internal/store"
+	"github.com/subaud-tools/muster/internal/version"
 	"github.com/subaud-tools/muster/internal/wake"
+	"github.com/subaud-tools/tools-common/pageserve"
 )
 
 func main() {
@@ -43,7 +47,7 @@ func main() {
 			_ = cli.HelpFor("serve", os.Stdout)
 			return
 		}
-		os.Exit(runServe())
+		os.Exit(serveCmd(os.Args[2:]))
 	case "debug":
 		if wantsHelp(os.Args[2:]) {
 			_ = cli.HelpFor("debug", os.Stdout)
@@ -158,13 +162,49 @@ func channelInterval() time.Duration {
 	return d
 }
 
-// runServe runs the daemon until it receives SIGINT/SIGTERM, returning the
-// process exit code (0 on a clean shutdown, non-zero on setup failure).
+// serveCmd is `muster serve [--foreground] [--no-open] [--port N] [--stop]`,
+// the family's serve flags, so pageserve.StartTool("muster") and `muster serve
+// --stop` work as for every other tool. serve always runs in this process and
+// never opens a browser, so --foreground and --no-open are accepted and change
+// nothing; --port is the page's port; --stop asks the running serve to exit.
+func serveCmd(args []string) int {
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.Bool("foreground", false, "run in this process until stopped (always so)")
+	fs.Bool("no-open", false, "don't open the browser (never opens one)")
+	stop := fs.Bool("stop", false, "stop the running serve")
+	port := fs.Int("port", 0, "the page's port (default: the last one used, else a free one)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() > 0 {
+		fmt.Fprintln(os.Stderr, "muster: serve takes no arguments")
+		return 2
+	}
+	if *stop {
+		err := pageserve.Stop(context.Background(), serve.Live())
+		switch {
+		case errors.Is(err, pageserve.ErrNotRunning):
+			fmt.Println("muster serve is not running")
+		case err != nil:
+			fmt.Fprintln(os.Stderr, "muster: serve --stop:", err)
+			return 1
+		default:
+			fmt.Println("muster serve stopped")
+		}
+		return 0
+	}
+	return runServe(*port)
+}
+
+// runServe runs the daemon and its page until SIGINT/SIGTERM, a replaced
+// binary or the page's POST /api/stop, returning the process exit code (0 on
+// a clean shutdown, non-zero on setup failure).
 //
 // Both backends bind the same unix socket and use the same tmux notifier —
 // every client above the daemon is identical either way. Local mode touches no
 // remote code at all, and neither mode links the AWS SDK.
-func runServe() int {
+func runServe(port int) int {
 	if err := paths.EnsureHome(); err != nil {
 		fmt.Fprintln(os.Stderr, "muster: mkdir:", err)
 		return 1
@@ -215,10 +255,37 @@ func runServe() int {
 	defer func() { _ = d.Close() }()
 	fmt.Fprintln(os.Stderr, "muster daemon listening at", paths.SocketPath())
 
-	select {
-	case <-sig:
-	case <-replaced:
-		fmt.Fprintln(os.Stderr, "muster: binary replaced on disk; exiting so the new version starts")
+	// The page runs beside the socket once it is bound. A page that fails to
+	// start is logged and the socket keeps serving: the bus matters more than
+	// its page. One that stops cleanly (POST /api/stop) ends serve.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	page := make(chan error, 1)
+	go func() {
+		page <- serve.Run(ctx, d, serve.Options{Port: port, Version: version.Version(), Log: os.Stderr})
+	}()
+	running := true
+	for done := false; !done; {
+		select {
+		case <-sig:
+			done = true
+		case <-replaced:
+			fmt.Fprintln(os.Stderr, "muster: binary replaced on disk; exiting so the new version starts")
+			done = true
+		case err := <-page:
+			running = false
+			if err == nil {
+				done = true
+				break
+			}
+			fmt.Fprintln(os.Stderr, "muster: page:", err)
+			page = nil
+		}
+	}
+	cancel()
+	if running {
+		// Its entry goes before the socket does.
+		<-page
 	}
 	return 0
 }
@@ -229,10 +296,11 @@ func runServe() int {
 // (wait false) whose lock is held, or a waiting serve stopped by a signal or by
 // an upgrade of its binary.
 //
-// A waiting serve (the launchd job) must not exit while another daemon holds
-// the lock: launchd restarts a clean exit, which spun 103,600 times on Court's
-// Mac while a client-spawned daemon owned the socket. Waiting instead lets it
-// take over the moment that daemon exits.
+// A waiting serve (one a client did not start, such as the launchd job older
+// releases installed) must not exit while another daemon holds the
+// lock: launchd restarts a clean exit, which spun 103,600 times on Court's Mac
+// while a client-spawned daemon owned the socket. Waiting instead lets it take
+// over the moment that daemon exits.
 func acquireServeLock(wait bool, sig <-chan os.Signal, replaced <-chan struct{}) (*os.File, error) {
 	f, err := os.OpenFile(filepath.Join(paths.Home(), "serve.lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {

@@ -233,7 +233,7 @@ func agentDetected(home, agent string) bool {
 }
 
 // setupDeclaration decodes only the configuration operations direct setup supports.
-// Download, service and verification remain exclusively kempt's responsibility.
+// Download and verification remain exclusively kempt's responsibility.
 func setupDeclaration() map[string]any {
 	var doc map[string]any
 	if err := toml.Unmarshal([]byte(setupKemptTOML), &doc); err != nil {

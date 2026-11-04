@@ -175,6 +175,19 @@ muster standing retract --thread <id>                       # retract one standi
 An ad-hoc `send --broadcast --standing` has no key, so `retract --thread` (or
 `R` in station) is how you stop it greeting new sessions.
 
+### The daemon and its page
+
+`muster serve` is the daemon. No launchd job or other service runs it: any
+muster command (and the MCP server) starts it when its socket doesn't answer,
+and [proj](https://github.com/subaud-tools/tackle) starts it with a session.
+It exits when its binary is replaced, and the next command starts the new one.
+
+Beside its socket it serves a page on 127.0.0.1: every agent on the bus with
+its project, label, activity, last seen, and unread and action-required
+counts, updated live. Its address is in
+`~/.local/state/muster/live/serve.json`; `muster serve --stop` stops the
+daemon.
+
 ### Registering & liveness
 
 Agents can self-register (so a shell hook can do it at session start):

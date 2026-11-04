@@ -416,7 +416,7 @@ func hookGetAgent(alias string) (agentFull, bool, error) {
 // A roster that cannot answer at all is the one case that falls the other way
 // (spec §3a): an unreachable daemon is not evidence of a free identity, and
 // this is exactly how the v0.10.1 live acceptance failed — the installer's
-// LaunchAgent restart had the daemon down for the instant a foreign pane's
+// daemon restart had the daemon down for the instant a foreign pane's
 // SessionStart ran its check, the dial error read as "no row", and the pane
 // claimed the primary's identity. Declining to write costs nothing: a hook
 // never blocks a session either way, primaries re-register at every
